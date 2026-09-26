@@ -5,6 +5,25 @@ chaves.omawin` brings you the latest.
 
 ## Unreleased
 
+### Added
+
+- **Your own compose file.** Point `~/.config/omawin/config` at a
+  docker compose file (`COMPOSE_FILE=~/windows-vm/compose.yaml`) and the card
+  drives that VM instead of Omarchy's: Start, Connect, Stop, Pause, Tune and
+  Update password all work on it through Docker, with no password dialog. The
+  container name, disk folder, shared folder and login are read from the
+  compose. Install and the polkit switch are hidden in this mode.
+- **Restart** on the ready and booting cards: a clean shutdown and a fresh
+  boot (`docker restart`), the safe way round a Windows reboot that hangs. An
+  open window closes first and reopens once Windows is back.
+- `omarchy-shell chaves.omawin launch` starts, resumes or connects to the VM,
+  whichever fits, for an app launcher entry or a key binding.
+
+### Fixed
+
+- The web viewer counts as up on a VM without a web password, instead of
+  showing as down.
+
 ## 0.2.2 — 2026-09-25
 
 ### Changed

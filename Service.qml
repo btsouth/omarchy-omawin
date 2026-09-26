@@ -85,6 +85,8 @@ QtObject {
   // the lock is long released and Stop is safe again.
   readonly property var actions: {
     var allowed = State.allowedActions(root.state, root.sample, root.base)
+    // Omarchy's installer would build a second VM beside the user's own one.
+    if (root.custom) allowed = Object.assign({}, allowed, { install: false })
     if (root.sessionOpen) {
       allowed = Object.assign({}, allowed, {
         start: false, connect: false,
@@ -98,7 +100,9 @@ QtObject {
   readonly property string label: State.label(root.state)
   // The cores·RAM pill: the live sample while the VM runs, the cache below
   // once it is off.
-  readonly property string detail: State.detail(root.sample, root.cached)
+  readonly property string detail: root.composeShape
+    ? State.shape(root.composeCores, root.composeRam, root.currentDisk)
+    : State.detail(root.sample, root.cached)
   readonly property string tooltip: State.tooltip(root.state, root.sample, root.desired,
     root.cached, root.nowMs)
   // The shape Tune has written and the next start will use, or null. While it
@@ -108,10 +112,16 @@ QtObject {
     ? State.pendingShape(root.cached) : null
 
   // The stopped card's readings, live or cached, and its "Last run".
-  readonly property string coresText: root.pending ? String(root.pending.cores)
+  // In custom mode a stopped VM's compose is the truth for the next start,
+  // ahead of the pending shape and the cache.
+  readonly property bool composeShape: root.custom && !root.sample.pid
+    && root.composeCores > 0 && root.composeRam !== ""
+  readonly property string coresText: root.composeShape ? String(root.composeCores)
+    : root.pending ? String(root.pending.cores)
     : (root.sample.cores ? String(root.sample.cores)
       : (root.cached && root.cached.cores ? String(root.cached.cores) : "—"))
-  readonly property string ramText: root.pending ? root.pending.ram
+  readonly property string ramText: root.composeShape ? root.composeRam
+    : root.pending ? root.pending.ram
     : (root.sample.ram ? root.sample.ram
       : (root.cached && root.cached.ram ? String(root.cached.ram) : "—"))
   // The disk is the apparent size of ~/.windows/data.img, which is ours to read
@@ -136,13 +146,13 @@ QtObject {
   // out of time, the state machine's (see State.failure).
   readonly property string failedMessage: State.failure(root.sample, root.desired, root.nowMs)
   readonly property bool dockerActive: root.sample.docker === "active"
-  readonly property bool webUp: root.sample.web === 401
+  readonly property bool webUp: State.webUp(root.sample.web)
 
   // True while any action process is in flight; every button greys out, so a
   // second press cannot stack a stop on top of a start.
   readonly property bool busy: launchProc.running || stopProc.running || installProc.running
     || disconnectProc.running
-    || pauseProc.running || resumeProc.running
+    || pauseProc.running || resumeProc.running || restartProc.running
     // The three configuration actions count too: Apply, Save and the terminal
     // that installs the polkit rule all grey every button out while they run,
     // so a start cannot be stacked on top of a compose rewrite.
@@ -171,6 +181,51 @@ QtObject {
   // Only ever printed: the Settings face names the user the polkit rule would
   // be written for, before `setup` has written one to read the name back out of.
   readonly property string user: Quickshell.env("USER")
+
+  // ------------------------------------------------------------- the mode
+  // Omarchy's own VM, or the user's own compose (helpers/custom.sh): read off
+  // `custom.sh info` at start and every time the card opens, so editing
+  // ~/.config/omawin/config needs no shell restart. The helpers decide the
+  // mode for themselves; this is only what the card says and hides.
+  property bool custom: false
+  property string configPath: ""
+  property string composePath: ""
+  property string containerName: "omarchy-windows"
+  property string storageDir: root.home + "/.windows"
+  property string sharedDir: root.home + "/Windows"
+  // The compose's own CPU_CORES / RAM_SIZE: in custom mode the file is ours to
+  // read, so a stopped VM's shape is known without having seen it run.
+  property int composeCores: 0
+  property string composeRam: ""
+
+  function readMode() {
+    if (!modeProc.running) modeProc.running = true
+  }
+
+  property Process modeProc: Process {
+    command: ["/usr/bin/timeout", "-k", "2", "5", "/usr/bin/bash", root.helpers + "/custom.sh", "info"]
+    environment: ({ LC_ALL: "C" })
+    stdout: StdioCollector { id: modeOut; waitForEnd: true }
+    onExited: function (code) {
+      if (code !== 0) return
+      var fields = {}
+      var lines = String(modeOut.text).split("\n")
+      for (var i = 0; i < lines.length && i < 16; i++) {
+        var eq = lines[i].indexOf("=")
+        if (eq > 0) fields[lines[i].substring(0, eq)] = root.plain(lines[i].substring(eq + 1), 512)
+      }
+      var path = function (value, fallback) { return /^\//.test(value || "") ? value : fallback }
+      root.custom = fields.mode === "custom"
+      root.configPath = path(fields.config, "")
+      root.composePath = path(fields.compose, "")
+      root.containerName = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$/.test(fields.container || "")
+        ? fields.container : "omarchy-windows"
+      root.storageDir = path(fields.storage, root.home + "/.windows")
+      root.sharedDir = path(fields.shared, root.home + "/Windows")
+      root.composeCores = /^[0-9]{1,4}$/.test(fields.cores || "") ? parseInt(fields.cores, 10) : 0
+      root.composeRam = State.RAM_SHAPE.test(fields.ram || "") ? fields.ram : ""
+    }
+  }
 
   // --------------------------------------------------------------- the cache
   // What a stopped VM still knows about itself: {cores, ram, disk, started,
@@ -313,6 +368,7 @@ QtObject {
 
   Component.onCompleted: {
     mkdirProc.running = true
+    root.readMode()
     // Give mkdir a tick, then read whatever is already there. FileView's
     // implicit preload may have raced the directory into existence.
     Qt.callLater(function () { cacheFile.reload() })
@@ -361,10 +417,13 @@ QtObject {
     // One exception: Stop on a paused VM unpauses first (see stop()), so the
     // freeze flipping off is that stop's own doing, not a state change that
     // should end it — the card stays at "stopping" until QEMU is gone.
+    // A restart takes QEMU away and brings it back by design; it ends when
+    // `docker restart` returns (restartProc), not on a sample.
     var stopping = root.desired && root.desired.action === "stop"
-    var moved = (!!next.pid !== !!previous.pid)
+    var restarting = root.desired && root.desired.action === "restart"
+    var moved = !restarting && ((!!next.pid !== !!previous.pid)
       || (next.frozen !== previous.frozen && !stopping)
-      || (next.installed !== previous.installed)
+      || (next.installed !== previous.installed))
     if (moved) root.clearDesired()
     // QEMU appearing means a pending shape has just been consumed, so the
     // "Shape saved" banner has said all it had to say.
@@ -609,7 +668,9 @@ QtObject {
 
   // ---------------------------------------------------------------- the stop
   // Short and non-interactive, so it runs as a plain Process with its stderr
-  // collected; `omarchy-windows-vm stop` does one `pkexec … __priv down`.
+  // collected. helpers/vm.sh picks the command: `omarchy-windows-vm stop`
+  // (one `pkexec … __priv down`) or, in custom-compose mode,
+  // `docker compose -f <compose> down`.
 
   // `docker compose down` on a frozen container sends
   // SIGTERM into a process that cannot answer, waits out the full 2 min grace
@@ -631,14 +692,55 @@ QtObject {
   }
 
   property Process stopProc: Process {
-    command: ["/usr/bin/omarchy-windows-vm", "stop"]
+    command: ["/usr/bin/bash", root.helpers + "/vm.sh", "stop"]
     environment: ({ LC_ALL: "C" })
     stderr: StdioCollector { id: stopErr; waitForEnd: true }
     onExited: function (code) {
       if (code !== 0) {
         var message = root.lastLine(stopErr.text)
         if (root.dismissed(message)) root.clearDesired()
-        else root.fail(message || "omarchy-windows-vm stop exited with status " + code)
+        else root.fail(message || "stop exited with status " + code)
+      }
+      root.refresh()
+    }
+  }
+
+  // ------------------------------------------------------------- the restart
+  // `docker restart --timeout 120`: an ACPI shutdown, then a fresh QEMU
+  // process. A guest reboot from inside Windows can wedge nested Hyper-V under
+  // QEMU/TianoCore; this is the safe way round it. An open RDP window is
+  // closed first (the guest is about to go away under it) and reopened once
+  // the restart returns. Connect waits for Windows to report ready.
+  property bool reconnectAfterRestart: false
+
+  function restart() {
+    if (root.busy) return
+    root.clearNotice()
+    root.setDesired("restart")
+    root.reconnectAfterRestart = root.sessionOpen
+    if (root.sessionOpen) {
+      root.disconnectThen = "restart"
+      disconnectProc.running = true
+      return
+    }
+    restartProc.running = true
+  }
+
+  property Process restartProc: Process {
+    command: ["/usr/bin/bash", root.helpers + "/vm.sh", "restart"]
+    environment: ({ LC_ALL: "C" })
+    stderr: StdioCollector { id: restartErr; waitForEnd: true }
+    onExited: function (code) {
+      var message = root.lastLine(restartErr.text)
+      var thenConnect = root.reconnectAfterRestart
+      root.reconnectAfterRestart = false
+      if (code !== 0) {
+        if (root.dismissed(message)) root.clearDesired()
+        else root.fail(message || "restart exited with status " + code)
+      } else if (thenConnect) {
+        root.launch()
+      } else {
+        root.clearDesired()
       }
       root.refresh()
     }
@@ -684,19 +786,27 @@ QtObject {
     root.clearNotice()
     root.pauseClosedWindow = false
     if (root.sessionOpen) {
+      root.disconnectThen = "pause"
       disconnectProc.running = true
       return
     }
     pauseProc.running = true
   }
 
+  // What follows closing the RDP window: "pause" or "restart".
+  property string disconnectThen: "pause"
+
   property Process disconnectProc: Process {
     command: ["/usr/bin/systemctl", "--user", "stop", "omawin-launch"]
     environment: ({ LC_ALL: "C" })
     onExited: function (code) {
       // Whether or not the unit was still there, nothing holds the RDP
-      // session now; freeze.
+      // session now; freeze (or restart).
       root.sessionOpen = false
+      if (root.disconnectThen === "restart") {
+        restartProc.running = true
+        return
+      }
       root.pauseClosedWindow = true
       pauseProc.running = true
     }
@@ -728,7 +838,7 @@ QtObject {
   property bool pauseClosedWindow: false
 
   property Process pauseProc: Process {
-    command: ["/usr/bin/pkexec", "/usr/bin/docker", "pause", "omarchy-windows"]
+    command: ["/usr/bin/bash", root.helpers + "/vm.sh", "pause"]
     environment: ({ LC_ALL: "C" })
     stderr: StdioCollector { id: pauseErr; waitForEnd: true }
     onExited: function (code) {
@@ -748,7 +858,7 @@ QtObject {
   }
 
   property Process resumeProc: Process {
-    command: ["/usr/bin/pkexec", "/usr/bin/docker", "unpause", "omarchy-windows"]
+    command: ["/usr/bin/bash", root.helpers + "/vm.sh", "unpause"]
     environment: ({ LC_ALL: "C" })
     stderr: StdioCollector { id: resumeErr; waitForEnd: true }
     onExited: function (code) {
@@ -875,6 +985,7 @@ QtObject {
           + (grew ? " Windows sees the extra space as unallocated; extend C: in Disk Management once it is up." : ""),
           true)
         root.shapeApplied()
+        root.readMode()
       } else if (root.dismissed(message)) {
         // The authentication dialog was closed: nothing was written, nothing to
         // report. The face stays as it was, with its controls still set.
@@ -984,8 +1095,9 @@ QtObject {
   // fields or none, and it is the shape the next start will use, a pending
   // Tune's disk included, or saving would undo that grow. With no shape known there is nothing to send, and the panel
   // says so rather than guessing — hence the guard here too.
-  readonly property bool canSavePassword: root.coresText !== "—" && root.ramText !== "—"
-    && root.currentDisk !== ""
+  // In custom-compose mode only the PASSWORD line is rewritten: no shape needed.
+  readonly property bool canSavePassword: root.custom || (root.coresText !== "—"
+    && root.ramText !== "—" && root.currentDisk !== "")
 
   property string pendingPassword: ""
 
@@ -1153,12 +1265,13 @@ QtObject {
     command: ["/usr/bin/xdg-open", "http://127.0.0.1:8006"]
   }
 
-  // ~/Windows, the /shared bind — the guest sees it as a network drive.
+  // ~/Windows, or whatever the custom compose mounts on /shared. The guest
+  // sees it as a network drive.
   function openShared() {
     sharedProc.running = true
   }
 
   property Process sharedProc: Process {
-    command: ["/usr/bin/xdg-open", root.home + "/Windows"]
+    command: ["/usr/bin/xdg-open", root.sharedDir]
   }
 }

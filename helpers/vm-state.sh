@@ -54,6 +54,12 @@
 #   DATA_IMAGE        the guest disk image   (default ~/.windows/data.img)
 #   DOCKER_STATE      skip systemctl, use this value
 #   WEB_CODE          skip curl, use this value (still only when installed)
+#   OMAWIN_CONFIG     the custom-compose config (see helpers/custom.sh)
+#
+# In custom-compose mode (helpers/custom.sh) the user's own compose stands in
+# for Omarchy's: installed means it exists, the disk is data.img in the
+# directory it mounts on /storage, and the login is its USERNAME. The /proc
+# scan is the same either way.
 
 set -uo pipefail
 export LC_ALL=C
@@ -62,17 +68,24 @@ export LC_ALL=C
 # when the redirection itself fails on a process that exited mid-scan.
 shopt -s nullglob
 
+# shellcheck source=helpers/custom.sh
+source "${BASH_SOURCE[0]%/*}/custom.sh"
+omawin_load
+
 proc_root=${PROC_ROOT:-/proc}
 sys_root=${SYS_ROOT:-/sys}
 compose=${COMPOSE_FILE:-/var/lib/omarchy/windows/docker-compose.yml}
 legacy_compose=${LEGACY_COMPOSE_FILE:-$HOME/.config/windows/docker-compose.yml}
 credentials=${CREDENTIALS_FILE:-$HOME/.config/windows/credentials}
-data_image=${DATA_IMAGE:-$HOME/.windows/data.img}
+data_image=${DATA_IMAGE:-$OMAWIN_STORAGE/data.img}
 
 # The same test migrate_legacy_compose makes: the old file only counts while
 # the new one is not there yet.
-installed=0 legacy=0
-if [[ -f $compose && -f $credentials ]]; then
+installed=0 legacy=0 custom=0
+if omawin_custom; then
+  custom=1
+  [[ -r $OMAWIN_COMPOSE ]] && installed=1
+elif [[ -f $compose && -f $credentials ]]; then
   installed=1
 elif [[ ! -f $compose && -f $legacy_compose ]]; then
   installed=1 legacy=1
@@ -95,7 +108,9 @@ if ((installed)); then
   # Only the username, and only if it looks like one (the helper's own
   # valid_username). IFS on the first = is how omarchy-windows-vm reads this
   # file; the PASSWORD line is skipped without ever being assigned.
-  if ((legacy)); then
+  if ((custom)); then
+    login=$(omawin_env USERNAME) || login=
+  elif ((legacy)); then
     # The old compose is the user's own file; its environment block holds
     # `USERNAME: "name"`, read the way the helper's read_compose_value reads
     # it. The PASSWORD line next to it never matches.

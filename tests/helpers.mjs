@@ -22,6 +22,10 @@ export function load(relative) {
 // fresh clone must not need the generator to run the sampler.
 export const DATA_IMAGE_BYTES = 64 * 1024 * 1024 * 1024
 
+// The custom-compose config every helper looks for: never the real user's.
+// tests/custom.test.mjs passes its own.
+const NO_CONFIG = { OMAWIN_CONFIG: path.join(fixtures, 'no-omawin-config') }
+
 export function dataImage(name, bytes = DATA_IMAGE_BYTES) {
   const file = path.join(fixtures, name, 'data.img')
   let size = -1
@@ -46,6 +50,7 @@ export function vmState(name, extra = {}) {
   return execFileSync('/bin/bash', ['helpers/vm-state.sh'], {
     cwd: root, encoding: 'utf8', env: {
       ...process.env,
+      ...NO_CONFIG,
       PROC_ROOT: path.join(dir, 'proc'),
       SYS_ROOT: path.join(dir, 'sys'),
       COMPOSE_FILE: path.join(dir, 'docker-compose.yml'),
@@ -66,7 +71,7 @@ export function vmState(name, extra = {}) {
 export function helper(script, args = [], env = {}, input = undefined) {
   const result = spawnSync('/bin/bash', [path.join('helpers', script), ...args], {
     cwd: root, encoding: 'utf8', input,
-    env: { ...process.env, LC_ALL: 'C', ...env }
+    env: { ...process.env, LC_ALL: 'C', ...NO_CONFIG, ...env }
   })
   return {
     status: result.status,

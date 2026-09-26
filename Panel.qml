@@ -55,6 +55,7 @@ Panel {
   // retry, which is exactly what State.allowedActions does with `base`.
   readonly property string stateFace: root.failed ? service.base : root.vmState
   readonly property bool inTransit: vmState === "starting" || vmState === "stopping"
+    || vmState === "restarting"
   readonly property bool pulsing: root.inTransit || vmState === "booting"
 
   // Which body the card is showing: the state machine's own ("live") or one of
@@ -120,6 +121,7 @@ Panel {
   readonly property string globeGlyph: ""
   readonly property string folderGlyph: ""
   readonly property string termGlyph: ""
+  readonly property string restartGlyph: "\uf021"
   // New with the sub-faces: the gear that opens Settings, the sliders of Tune,
   // the key of Login, the eye of Reveal, the clipboard, the shield of the rule,
   // the tick of Apply and Save, the chevron of Back and the stepper’s signs.
@@ -147,6 +149,12 @@ Panel {
       // repaint of the whole popup (about 8% of the iGPU in Hyprland,
       // measured). The bar glyph keeps its pulse.
     }
+  }
+
+  // /home/me/x → ~/x, for paths printed on the card.
+  function homeShort(path) {
+    var home = service.home
+    return home && String(path).indexOf(home + "/") === 0 ? "~" + String(path).slice(home.length) : String(path)
   }
 
   // A button is live only when the state machine allows it AND no action is
@@ -215,7 +223,13 @@ Panel {
 
   // The wizard's own free-space rule, counted the way the wizard counts it: the
   // image already on disk is not subtracted.
-  readonly property int diskNeedGb: (parseInt(root.tuneDisk, 10) || 0) + 10
+  // In custom mode (no wizard to agree with) only the growth needs room.
+  readonly property int diskNeedGb: {
+    var want = parseInt(root.tuneDisk, 10) || 0
+    var now = parseInt(service.currentDisk, 10) || 0
+    if (service.custom && now > 0) return want > now ? want - now + 10 : 0
+    return want + 10
+  }
   readonly property bool tuneRoom: service.freeGb < 0 || root.diskNeedGb <= service.freeGb
   readonly property bool tuneChanged: String(root.tuneCores) !== service.coresText
     || root.tuneRam !== service.ramText || root.tuneDisk !== service.diskText
@@ -232,10 +246,12 @@ Panel {
     if (!root.tuneChanged) return "Same shape as now, " + shape + ". Nothing to apply."
     if (!root.tuneRoom)
       return "Not enough room. " + root.tuneDisk + " needs " + root.diskNeedGb
-        + " GB free (disk + 10 GB), you have " + service.freeGb + " GB."
+        + (service.custom ? " GB free (growth + 10 GB), you have " : " GB free (disk + 10 GB), you have ")
+        + service.freeGb + " GB."
     var text = "Next start runs with " + shape + "."
     if (service.loginText !== "—") text += " Login stays " + service.loginText + "."
-    text += " Omarchy asks for authorisation once."
+    text += service.custom ? " Written to your compose file; the old one is kept as .omawin.bak."
+      : " Omarchy asks for authorisation once."
     if (service.currentDisk !== "" && root.tuneDisk !== service.currentDisk)
       text += " Disk grows from " + service.currentDisk + "; extend C: in Windows afterwards."
     return text
@@ -243,7 +259,7 @@ Panel {
 
   // Save needs a password, a known shape to carry through the writer and a VM
   // that is off, for the same reason Apply does.
-  readonly property bool canSave: !service.busy && root.stoppedFace
+  readonly property bool canSave: !service.busy && (root.stoppedFace || service.custom)
     && service.canSavePassword && newPassword.text !== "" && newPassword.text.length <= 64
 
   // Where Back leads from the Login face: the card, or Settings when Login
@@ -298,7 +314,10 @@ Panel {
   // underneath would recreate its container from a file the user is still
   // editing. They close themselves rather than fail on Apply.
   onVmStateChanged: {
-    if (!root.stoppedFace && (root.face === "tune" || root.face === "updatePassword"))
+    // In custom-compose mode Update password only rewrites the PASSWORD line
+    // helpers/connect.sh reads at connect time, so it can stay open.
+    if (!root.stoppedFace && (root.face === "tune"
+      || (root.face === "updatePassword" && !service.custom)))
       root.face = "live"
   }
 
@@ -309,6 +328,7 @@ Panel {
     service.panelOpen = opened
     if (opened) {
       service.refresh()
+      service.readMode()
       // The polkit rule can have been installed or removed from a terminal
       // since the card was last open, so the switch is re-read every time.
       service.readRule()
@@ -330,6 +350,16 @@ Panel {
     function show(): void { root.open() }
     function hide(): void { root.close() }
     function toggle(): void { root.toggle() }
+    // The app launcher's entry point: Start a stopped VM, Resume a paused one,
+    // Connect to a ready one; anything else (booting, a transient, a failure,
+    // nothing installed) opens the card instead, where the state is explained.
+    function launch(): string {
+      if (root.can("start")) service.start()
+      else if (root.can("resume")) service.resume()
+      else if (root.can("connect")) service.connect()
+      else root.open()
+      return service.state
+    }
     // The headless check: the painted state, the sampler line it came from
     // and the bar tooltip, e.g. "stopped installed=1 docker=active pid= … |
     // Windows VM · STOPPED · 4 cores · 16G".
@@ -612,10 +642,17 @@ Panel {
           font.family: root.family
           font.pixelSize: Style.font.caption
           text: {
+            if (root.vmState === "not-installed" && service.custom)
+              return "The compose file named in " + root.homeShort(service.configPath) + " is not there: "
+                + root.homeShort(service.composePath) + ". Fix the path, or remove the file to use Omarchy's own VM."
             if (root.vmState === "not-installed")
               return "No Windows VM on this machine. The installer asks for RAM, cores, disk size and a login, then downloads Windows 11 (10–15 min). It runs in a floating terminal."
             if (root.vmState === "starting")
-              return "Bringing the container up. Omarchy may ask for authorisation."
+              return service.custom ? "Bringing the container up with docker compose."
+                : "Bringing the container up. Omarchy may ask for authorisation."
+            if (root.vmState === "restarting")
+              return "Windows gets up to 2 minutes to shut down cleanly, then boots in a fresh QEMU process."
+                + (service.reconnectAfterRestart ? " The window reopens once it is ready." : "")
             if (root.vmState === "booting" && service.stopHeldByLauncher)
               return "The launcher holds the VM while Windows boots; Stop unlocks once it answers on RDP."
             if (root.vmState === "paused")
@@ -730,7 +767,7 @@ Panel {
             InfoPair {
               visible: root.vmState === "ready"
               label: "Shared"
-              value: "~/Windows"
+              value: root.homeShort(service.sharedDir)
               dimValue: true
             }
           }
@@ -815,7 +852,7 @@ Panel {
           // not-installed
           ActionRow {
             id: installRow
-            visible: root.stateFace === "not-installed"
+            visible: root.stateFace === "not-installed" && !service.custom
             cells: 1
             ActionButton {
               width: installRow.cellWidth
@@ -869,6 +906,7 @@ Panel {
           ActionRow {
             id: transientRow
             visible: root.stateFace === "starting" || root.stateFace === "stopping"
+              || root.stateFace === "restarting"
             cells: 2
             ActionButton {
               width: transientRow.cellWidth
@@ -904,7 +942,7 @@ Panel {
           ActionRow {
             id: bootingRow
             visible: root.stateFace === "booting"
-            cells: 2
+            cells: 3
             ActionButton {
               width: bootingRow.cellWidth
               iconText: root.linkGlyph
@@ -912,6 +950,7 @@ Panel {
               allowed: root.can("connect")
               onClicked: service.connect()
             }
+            RestartButton { width: bootingRow.cellWidth }
             ActionButton {
               width: bootingRow.cellWidth
               iconText: root.stopGlyph
@@ -925,7 +964,7 @@ Panel {
           ActionRow {
             id: readyRow
             visible: root.stateFace === "ready"
-            cells: 3
+            cells: 4
             ActionButton {
               width: readyRow.cellWidth
               iconText: root.linkGlyph
@@ -940,6 +979,7 @@ Panel {
               allowed: root.can("pause")
               onClicked: service.pause()
             }
+            RestartButton { width: readyRow.cellWidth }
             ActionButton {
               width: readyRow.cellWidth
               iconText: root.stopGlyph
@@ -1163,7 +1203,7 @@ Panel {
             }
             InfoPair {
               label: "Stored in"
-              value: "~/.config/windows/credentials"
+              value: service.custom ? root.homeShort(service.composePath) : "~/.config/windows/credentials"
               dimValue: true
             }
           }
@@ -1196,7 +1236,7 @@ Panel {
             color: root.dim
             font.family: root.family
             font.pixelSize: Style.font.caption
-            text: root.stoppedFace
+            text: root.stoppedFace || service.custom
               ? "Changed the password inside Windows? Save the new one here so Connect keeps working."
               : "Changed the password inside Windows? Stop the VM first: saving it here also rewrites the compose, which is only read at the next start."
           }
@@ -1208,7 +1248,7 @@ Panel {
               width: loginRow2.cellWidth
               iconText: root.keyGlyph
               text: "Update password…"
-              allowed: !service.busy && root.stoppedFace
+              allowed: !service.busy && (root.stoppedFace || service.custom)
               onClicked: root.openFace("updatePassword")
             }
           }
@@ -1305,7 +1345,29 @@ Panel {
           width: parent.width
           spacing: Style.space(14)
 
+          // Custom-compose mode: no rule to install, nothing to authorise.
+          Column {
+            visible: service.custom
+            width: parent.width
+            spacing: Style.space(2)
+
+            InfoValue { text: "Your own compose · docker" }
+
+            Text {
+              width: parent.width
+              textFormat: Text.PlainText
+              wrapMode: Text.WordWrap
+              color: root.dim
+              font.family: root.family
+              font.pixelSize: Style.font.caption
+              text: "Start, Stop, Pause, Restart and Tune run through Docker directly, with no dialog: "
+                + "they need the docker group, not a polkit rule. Tune and Update password rewrite the "
+                + "compose file and keep the previous one as .omawin.bak. Set in " + root.homeShort(service.configPath) + "."
+            }
+          }
+
           Row {
+            visible: !service.custom
             width: parent.width
             spacing: Style.space(12)
 
@@ -1348,6 +1410,7 @@ Panel {
           // The five command lines, rendered from the same template `setup`
           // installs, so what is read here is what the terminal will show.
           Item {
+            visible: !service.custom
             width: parent.width
             implicitHeight: ruleText.implicitHeight + Style.space(12)
 
@@ -1378,6 +1441,7 @@ Panel {
           }
 
           Text {
+            visible: !service.custom
             width: parent.width
             textFormat: Text.PlainText
             wrapMode: Text.WordWrap
@@ -1391,6 +1455,7 @@ Panel {
 
           ActionRow {
             id: settingsRow
+            visible: !service.custom
             cells: 1
             ActionButton {
               width: settingsRow.cellWidth
@@ -1428,13 +1493,32 @@ Panel {
             }
 
             InfoPair {
+              visible: !service.custom
               label: "Helper"
               value: "/usr/bin/omarchy-windows-vm"
               dimValue: true
             }
             InfoPair {
               label: "Compose"
-              value: "/var/lib/omarchy/windows"
+              value: service.custom ? root.homeShort(service.composePath) : "/var/lib/omarchy/windows"
+              dimValue: true
+            }
+            InfoPair {
+              visible: service.custom
+              label: "Container"
+              value: service.containerName
+              dimValue: true
+            }
+            InfoPair {
+              visible: service.custom
+              label: "Storage"
+              value: root.homeShort(service.storageDir)
+              dimValue: true
+            }
+            InfoPair {
+              visible: service.custom
+              label: "Shared"
+              value: root.homeShort(service.sharedDir)
               dimValue: true
             }
           }
@@ -1490,6 +1574,15 @@ Panel {
     text: "Login…"
     allowed: service.loginText !== "—"
     onClicked: root.openFace("login")
+  }
+
+  // A clean stop and a fresh QEMU process, on the booting and ready cards.
+  component RestartButton: ActionButton {
+    iconText: root.restartGlyph
+    text: "Restart"
+    tooltipText: "Shut Windows down cleanly and boot it again"
+    allowed: root.can("restart")
+    onClicked: service.restart()
   }
 
   // A row of equal-width buttons, the Display panel's scale-pill geometry.

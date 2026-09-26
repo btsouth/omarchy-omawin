@@ -27,6 +27,7 @@ of it — and the tests create it themselves if it is missing). They also run
 | Method | Does |
 |--------|------|
 | `open` / `close` / `toggle` / `show` / `hide` | the popup |
+| `launch` | Start if stopped, Resume if paused, Connect if ready, otherwise open the popup. Returns the state. |
 | `status` | one line: the painted state, the `vm-state.sh` line behind it and the bar tooltip, e.g. `stopped installed=1 docker=active pid= frozen= cores= ram= web=000 cid= started= disk=64G login=chaves \| Windows VM · STOPPED · 4 cores · 16G · 64G` |
 | `fail <text>` | **debug.** Paints the failed card with `<text>` as the message, without breaking anything to get there. Sticky like a real failure — cleared by the next successful action or state change, or at once with `fail ""`. |
 | `mock <line> [probe] [action]` | **debug.** Stands `<line>` in for `vm-state.sh`, `probe` (`ok`/`no`) in for the RDP probe and `action` (`start`/`stop`) in for a pending transient, so every face of the card can be looked at with the VM switched off. `mock "" "" ""` (all three arguments are required by the IPC) hands the widget back to the real sampler and drops the mocked transient. |
@@ -48,7 +49,8 @@ refuses anything but a dotted IPv4 address); `DATA_IMAGE` for the disk reading;
 `WL_PASTE` for `credentials.sh`;
 `OMAWIN_STATE_DIR` for `rule-state.sh`; `POLKIT_RULES_DIR`,
 `SETUP_SKIP_ROOT_CHECK`, `OMAWIN_STATE_DIR` and `SETUP_TARGET_HOME` for
-`setup`. The two dry runs stop before the one `pkexec` call and print what they
+`setup`; `OMAWIN_CONFIG` (or `HOME`/`XDG_CONFIG_HOME`) for custom-compose mode in
+every helper that sources `helpers/custom.sh`. The two dry runs stop before the one `pkexec` call and print what they
 would have piped into it, with the password replaced by `***`. Nothing selects
 a program to run: the unit name and every command line are constants.
 
@@ -88,6 +90,10 @@ a program to run: the unit name and every command line are constants.
   the shell's own `PopupCard`/`PanelHero`/`Button`/`ToggleSwitch`/`TextField`
   kit. The two that rewrite the compose close themselves if the VM stops being
   stopped underneath them.
+- `helpers/custom.sh` (custom-compose mode: the config, reading and rewriting
+  the user's compose), `helpers/vm.sh` (stop, pause, unpause, restart in
+  either mode) and `helpers/connect.sh` (the custom-mode launcher the
+  `omawin-launch` unit runs instead of `omarchy-windows-vm launch -k`).
 - `polkit/49-omawin.rules.in`, `polkit/49-omawin-probe.rules.in` and `setup`
   — the rule that makes the cycle passwordless, its probe, and the script that
   shows and installs them.

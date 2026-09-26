@@ -63,13 +63,23 @@
 #   TZ_NAME           skip timedatectl, use this value
 #   TUNE_DRY_RUN      =1 prints the six lines it would pipe to pkexec instead
 #                     of running it, with PASSWORD=*** in place of the secret
+#   OMAWIN_CONFIG     the custom-compose config (see helpers/custom.sh)
+#
+# In custom-compose mode the same guards apply, but the write is RAM_SIZE,
+# CPU_CORES and DISK_SIZE straight into the user's own compose (no pkexec, the
+# login untouched), and the disk and free space are read where that compose
+# keeps data.img.
 
 set -uo pipefail
 export LC_ALL=C
 
+# shellcheck source=helpers/custom.sh
+source "${BASH_SOURCE[0]%/*}/custom.sh"
+omawin_load
+
 credentials=${CREDENTIALS_FILE:-$HOME/.config/windows/credentials}
-data_image=${DATA_IMAGE:-$HOME/.windows/data.img}
-windows_dir=${WINDOWS_DIR:-$HOME/.windows}
+data_image=${DATA_IMAGE:-$OMAWIN_STORAGE/data.img}
+windows_dir=${WINDOWS_DIR:-$OMAWIN_STORAGE}
 
 # The headroom `install` leaves for the Windows image on top of the disk.
 RESERVE_GB=10
@@ -154,7 +164,11 @@ timezone() {
 
 limits() {
   local login
-  login=$(credential USERNAME) || login=
+  if omawin_custom; then
+    login=$(omawin_env USERNAME) || login=
+  else
+    login=$(credential USERNAME) || login=
+  fi
   [[ $login =~ ^[A-Za-z0-9_-]{1,20}$ ]] || login=
   printf 'cores=%s ram=%s free=%s disk=%s login=%s\n' \
     "$(host_cores)" "$(host_ram_gb)" "$(free_gb)" "$(current_disk)" "$login"
@@ -210,9 +224,28 @@ apply() {
   # The wizard's rule, counted the way the wizard counts it: the image that is
   # already there is not subtracted.
   local free need=$((10#${disk%G} + RESERVE_GB))
+  # Custom mode has no install wizard to agree with: an existing image only
+  # needs room for what it grows by, and a shape that keeps the disk needs none.
+  if omawin_custom && [[ -n $now ]]; then
+    need=0
+    ((10#${disk%G} > 10#${now%G})) && need=$((10#${disk%G} - 10#${now%G} + RESERVE_GB))
+  fi
   free=$(free_gb)
   [[ -z $free ]] || ((10#$free >= need)) ||
     die "not enough room: $disk needs $need GB free (disk + $RESERVE_GB GB), $free GB left"
+
+  if omawin_custom; then
+    [[ -w $OMAWIN_COMPOSE ]] || die "cannot write $OMAWIN_COMPOSE"
+    if [[ ${TUNE_DRY_RUN-} == 1 ]]; then
+      printf 'RAM_SIZE=%s\nCPU_CORES=%s\nDISK_SIZE=%s\n' "$ram" "$cores" "$disk"
+      echo ok
+      exit 0
+    fi
+    OMAWIN_V_RAM_SIZE=$ram OMAWIN_V_CPU_CORES=$cores OMAWIN_V_DISK_SIZE=$disk \
+      omawin_set RAM_SIZE CPU_CORES DISK_SIZE || exit 1
+    echo ok
+    exit 0
+  fi
 
   local username password tz
   # An install from before Omarchy moved the compose has no credentials file

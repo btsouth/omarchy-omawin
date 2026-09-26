@@ -86,6 +86,33 @@ Windows) and **Login…**.
 
 **‹ Back** at the top right, or **Esc**, goes back.
 
+## Your own compose file
+
+Running Windows from your own `docker compose` file instead of Omarchy's
+installer? Tell Omawin where it is:
+
+```sh
+mkdir -p ~/.config/omawin
+echo 'COMPOSE_FILE=~/windows-vm/compose.yaml' > ~/.config/omawin/config
+```
+
+The card picks it up the next time it opens. It reads the container name,
+the folders mounted on `/storage` and `/shared`, and `USERNAME` / `PASSWORD`
+from the compose, and runs everything through Docker directly, so you need to
+be in the `docker` group and there is no password dialog or polkit rule.
+Stop is `docker compose down`, Restart is `docker restart --timeout 120`, and
+Connect starts the container if needed, waits for Windows, and opens
+`xfreerdp3` the same way Omarchy does. Tune rewrites `RAM_SIZE`, `CPU_CORES`
+and `DISK_SIZE`, and Update password rewrites `PASSWORD`, keeping the previous
+file as `compose.yaml.omawin.bak`. Delete the config to go back to Omarchy's
+VM.
+
+To make an app launcher entry or a key binding do what middle click does:
+
+```sh
+omarchy-shell chaves.omawin launch
+```
+
 ## What it touches
 
 - **Reads**, as you: `/proc` and a cgroup file for the VM's state, the size of

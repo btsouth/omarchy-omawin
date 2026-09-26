@@ -29,14 +29,24 @@
 # command are constants — nothing in the environment can point this script at
 # another program.
 
+#
+# In custom-compose mode (helpers/custom.sh) the unit runs this plugin's own
+# helpers/connect.sh instead, which does the same against the user's compose.
+
 set -uo pipefail
 export LC_ALL=C
 
+# shellcheck source=helpers/custom.sh
+source "${BASH_SOURCE[0]%/*}/custom.sh"
+omawin_load
+
 unit=omawin-launch
+launcher=(/usr/bin/omarchy-windows-vm launch -k)
+omawin_custom && launcher=(/usr/bin/bash "$(cd -- "${BASH_SOURCE[0]%/*}" && pwd)/connect.sh")
 
 message=$(/usr/bin/systemd-run --user "--unit=$unit" --collect --quiet \
   --property=ExitType=cgroup \
-  -- /usr/bin/omarchy-windows-vm launch -k 2>&1 | /usr/bin/head -c 2048)
+  -- "${launcher[@]}" 2>&1 | /usr/bin/head -c 2048)
 status=$?
 
 if [[ $status -eq 0 ]]; then

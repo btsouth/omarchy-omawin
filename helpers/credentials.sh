@@ -56,15 +56,25 @@
 #   CREDS_DRY_RUN     =1 skips the pkexec step (and says so, with the shape it
 #                     would have written), so the tests can exercise the file
 #                     rewrite without a VM or a dialog
+#   OMAWIN_CONFIG     the custom-compose config (see helpers/custom.sh)
+#
+# In custom-compose mode the login is the USERNAME and PASSWORD of the user's
+# own compose, which is what helpers/connect.sh sends; `write` rewrites that
+# PASSWORD line (no pkexec, no shape needed) and leaves the credentials file
+# alone.
 
 set -uo pipefail
 export LC_ALL=C
+
+# shellcheck source=helpers/custom.sh
+source "${BASH_SOURCE[0]%/*}/custom.sh"
+omawin_load
 
 credentials=${CREDENTIALS_FILE:-$HOME/.config/windows/credentials}
 copy_mark=${COPY_MARK:-${XDG_RUNTIME_DIR:-/run/user/$UID}/omawin/copied}
 wl_copy=${WL_COPY:-/usr/bin/wl-copy}
 wl_paste=${WL_PASTE:-/usr/bin/wl-paste}
-data_image=${DATA_IMAGE:-$HOME/.windows/data.img}
+data_image=${DATA_IMAGE:-$OMAWIN_STORAGE/data.img}
 
 die() {
   echo "$*" >&2
@@ -74,6 +84,10 @@ die() {
 # One field, by name. IFS on the first = keeps a value that contains one.
 credential() {
   local want=$1 key value
+  if omawin_custom; then
+    omawin_env "$want"
+    return
+  fi
   [[ -f $credentials ]] || return 1
   while IFS='=' read -r key value; do
     if [[ $key == "$want" ]]; then
@@ -92,6 +106,7 @@ missing="no credentials at $credentials: run omarchy-windows-vm install first"
 # until its first launch writes one; reinstalling would be the wrong advice.
 [[ -f $credentials || ! -f ${LEGACY_COMPOSE_FILE:-$HOME/.config/windows/docker-compose.yml} ]] ||
   missing="start the VM once first: Omarchy finishes moving its settings then"
+omawin_custom && missing="no USERNAME/PASSWORD in the environment block of $OMAWIN_COMPOSE"
 
 current_disk() {
   local bytes
@@ -224,6 +239,21 @@ write_password() {
     esac
     shift
   done
+
+  if omawin_custom; then
+    local password
+    IFS= read -r password || true
+    [[ $password =~ ^[[:print:]]{1,64}$ ]] ||
+      die "the password must be 1 to 64 printable characters"
+    [[ -w $OMAWIN_COMPOSE ]] || die "cannot write $OMAWIN_COMPOSE"
+    if [[ ${CREDS_DRY_RUN-} == 1 ]]; then
+      echo "dry run: $OMAWIN_COMPOSE not rewritten"
+    else
+      OMAWIN_V_PASSWORD=$password omawin_set PASSWORD || exit 1
+    fi
+    echo ok
+    return 0
+  fi
 
   # The shape is not changed here, only carried through the writer — which
   # accepts nothing less than all six fields. Without it there is nothing to

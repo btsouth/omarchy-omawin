@@ -203,10 +203,11 @@ const EXPECTED = {
   'not-installed': ['install'],
   'stopped': ['start', 'shared', 'tune'],
   'starting': ['shared'],
-  'booting': ['stop', 'web', 'shared'],
-  'ready': ['connect', 'stop', 'pause', 'web', 'shared'],
+  'booting': ['stop', 'restart', 'web', 'shared'],
+  'ready': ['connect', 'stop', 'pause', 'restart', 'web', 'shared'],
   'paused': ['stop', 'resume', 'shared'],
-  'stopping': ['shared']
+  'stopping': ['shared'],
+  'restarting': ['shared']
 }
 
 test('allowedActions matches the per-state table', () => {
@@ -226,13 +227,29 @@ test('allowedActions matches the per-state table', () => {
   }
 })
 
-test('Web viewer appears in starting only once 8006 answers 401', () => {
+test('Web viewer appears in starting only once 8006 answers', () => {
   assert.equal(State.allowedActions('starting', State.parseSample(STOPPED)).web, false)
   const answering = State.parseSample(STOPPED.replace('web=000', 'web=401'))
   assert.equal(State.allowedActions('starting', answering).web, true)
-  // Any other code is not the viewer being up.
+  // A compose without PROTECT has no basic auth: 200 is up too.
+  const open = State.parseSample(STOPPED.replace('web=000', 'web=200'))
+  assert.equal(State.allowedActions('starting', open).web, true)
+  // A gateway error is not the viewer being up.
   const half = State.parseSample(STOPPED.replace('web=000', 'web=502'))
   assert.equal(State.allowedActions('starting', half).web, false)
+})
+
+test('a restart holds the card at restarting whatever QEMU does, then times out', () => {
+  const restart = { action: 'restart', since: 1000, failed: '' }
+  for (const line of [RUNNING, STOPPED]) {
+    assert.equal(State.classify(State.parseSample(line), OK, restart, 1000 + 60000), 'restarting')
+  }
+  const late = 1000 + State.RESTART_TIMEOUT
+  assert.equal(State.classify(State.parseSample(RUNNING), OK, restart, late), 'failed')
+  assert.match(State.failure(State.parseSample(RUNNING), restart, late), /^The restart did not finish/)
+  assert.equal(State.label('restarting'), 'RESTARTING')
+  // Nothing is installed: nothing to restart.
+  assert.equal(State.classify(State.parseSample(ABSENT), null, restart, 2000), 'not-installed')
 })
 
 test('failed shows the buttons of the state underneath it', () => {
