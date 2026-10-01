@@ -28,6 +28,16 @@
 # printed nothing, and a synthetic "<unit> exited with status N" only when the
 # journal has nothing at all (journald rotated it away, or is not running).
 #
+# One exception to "exited 0 means fine": when Windows refuses the login,
+# xfreerdp gives up before any window opens and the launcher still exits 0
+# ("RDP session closed. Windows VM is still running."), so a wrong username or
+# password looked like a Connect that did nothing. xfreerdp's ERRCONNECT_ code
+# for a refused login in the last run is reported as a failure whatever the
+# exit status, in words that say where to fix it.
+#
+# For the tests, UNIT_PROPS (the four `show` values, one per line) and
+# UNIT_JOURNAL (the journal text) stand in for systemctl and journalctl.
+#
 # The unit name is a constant, the journal window is the last 60 lines capped
 # at 64 KiB, and the line printed is capped at 300 characters: whatever the
 # launcher or xfreerdp wrote, the card gets one bounded line of it.
@@ -40,24 +50,34 @@ lines=60
 
 # --- while the unit still exists, systemd's own answer is authoritative -----
 
-mapfile -t props < <(/usr/bin/systemctl --user show \
-  -p LoadState -p ActiveState -p Result -p ExecMainStatus --value "$unit" 2>/dev/null)
+if [[ -v UNIT_PROPS ]]; then
+  mapfile -t props <<<"$UNIT_PROPS"
+else
+  mapfile -t props < <(/usr/bin/systemctl --user show \
+    -p LoadState -p ActiveState -p Result -p ExecMainStatus --value "$unit" 2>/dev/null)
+fi
 load=${props[0]:-not-found}
 active=${props[1]:-inactive}
 result=${props[2]:-success}
 mainstatus=${props[3]:-0}
 
+clean=0
 if [[ $load != "not-found" ]]; then
   # Still going: nothing has failed yet.
   [[ $active == "active" || $active == "activating" || $active == "reloading" ]] && { echo ok; exit 0; }
-  [[ $result == "success" && $mainstatus == "0" ]] && { echo ok; exit 0; }
+  # Exited 0: fine, unless the journal shows a refused login (below).
+  [[ $result == "success" && $mainstatus == "0" ]] && clean=1
 fi
 
 # --- otherwise reconstruct the last run from the journal --------------------
 
-journal=$(/usr/bin/journalctl --user -u "$unit" -n "$lines" -o cat --no-pager 2>/dev/null | /usr/bin/head -c 65536)
-[[ -z ${journal//[[:space:]]/} ]] &&
-  journal=$(/usr/bin/journalctl --user "_SYSTEMD_USER_UNIT=$unit.service" -n "$lines" -o cat --no-pager 2>/dev/null | /usr/bin/head -c 65536)
+if [[ -v UNIT_JOURNAL ]]; then
+  journal=$(printf '%s' "$UNIT_JOURNAL" | /usr/bin/head -c 65536)
+else
+  journal=$(/usr/bin/journalctl --user -u "$unit" -n "$lines" -o cat --no-pager 2>/dev/null | /usr/bin/head -c 65536)
+  [[ -z ${journal//[[:space:]]/} ]] &&
+    journal=$(/usr/bin/journalctl --user "_SYSTEMD_USER_UNIT=$unit.service" -n "$lines" -o cat --no-pager 2>/dev/null | /usr/bin/head -c 65536)
+fi
 
 mapfile -t all <<<"$journal"
 
@@ -68,6 +88,27 @@ for i in "${!all[@]}"; do
   [[ ${all[$i]} == Started\ * ]] && start=$i
 done
 for ((i = start; i < ${#all[@]}; i++)); do window+=("${all[$i]}"); done
+
+# A refused login, whatever the exit status. Only these codes: they are the
+# ones that mean "this username and password", and each has one fix.
+for line in "${window[@]}"; do
+  case $line in
+  *ERRCONNECT_LOGON_FAILURE* | *ERRCONNECT_WRONG_PASSWORD*)
+    echo "Windows rejected the username or password. Check Login, and Update password if you changed it in Windows."
+    exit 0
+    ;;
+  *ERRCONNECT_ACCOUNT_LOCKED_OUT*)
+    echo "Windows locked the account after too many failed logins. It unlocks itself after a while (10 minutes by default)."
+    exit 0
+    ;;
+  *ERRCONNECT_PASSWORD_EXPIRED* | *ERRCONNECT_PASSWORD_CERTAINLY_EXPIRED* | *ERRCONNECT_PASSWORD_MUST_CHANGE*)
+    echo "Windows wants a new password for this account. Change it at http://127.0.0.1:8006, then Update password."
+    exit 0
+    ;;
+  esac
+done
+
+[[ $clean -eq 1 ]] && { echo ok; exit 0; }
 
 failed=0
 status=$mainstatus

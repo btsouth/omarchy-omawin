@@ -5,6 +5,14 @@ chaves.omawin` brings you the latest.
 
 ## Unreleased
 
+### Fixed
+
+- **Connect no longer fails silently when Windows rejects the login.** If the
+  stored username or password is not the Windows account's (say, after
+  restoring a backed-up VM), the card turns red and says so, instead of
+  nothing happening. A locked-out account or an expired password gets its own
+  message.
+
 ## 0.2.2 — 2026-09-25
 
 ### Changed
