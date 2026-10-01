@@ -5,6 +5,8 @@ chaves.omawin` brings you the latest.
 
 ## Unreleased
 
+## 0.2.3 — 2026-10-01
+
 ### Fixed
 
 - **Connect no longer fails silently when Windows rejects the login.** If the
