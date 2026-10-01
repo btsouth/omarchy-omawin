@@ -44,7 +44,14 @@ always ask.
 omarchy plugin remove chaves.omawin
 ```
 
-The VM itself is Omarchy's and stays. Two things of Omawin's can stay behind:
+The VM itself is Omarchy's and stays. To remove it too, run
+`omarchy-windows-vm remove`: after a confirmation it deletes the VM, its disk
+`~/.windows` and its login `~/.config/windows` for good, so back them up
+first if you may want them again (see
+[Restoring a backed-up VM](#restoring-a-backed-up-vm)). Install… on the card,
+or `omarchy-windows-vm install`, starts a fresh one.
+
+Two things of Omawin's can stay behind:
 
 - `~/.local/state/omawin/`, the card's memory of the last run:
   `rm -r ~/.local/state/omawin`.
@@ -85,6 +92,25 @@ Windows) and **Login…**.
   only. It opens a terminal, shows you the rule and asks before writing it.
 
 **‹ Back** at the top right, or **Esc**, goes back.
+
+## Restoring a backed-up VM
+
+Back up two things: the `~/.windows` folder (the disk) and
+`~/.config/windows/credentials` (the login Connect uses). After reinstalling
+Omarchy:
+
+1. Copy the `~/.windows` folder back into your home.
+2. Press **Install…** on the card. For the username and password, enter the
+   two lines of the backed-up credentials file. Pick a disk at least as big as
+   the old one; cores and RAM are up to you, and Tune changes them later.
+3. The installer finds the disk already there, skips the download and boots
+   your old Windows. Press **Connect**.
+
+Windows keeps the accounts it already has: the login you type only tells
+Connect what to send. If the card says Windows rejected the username or
+password, copy the backed-up credentials file over
+`~/.config/windows/credentials`, which is what Connect reads, and connect
+again. The password is the account's password, not its PIN.
 
 ## What it touches
 

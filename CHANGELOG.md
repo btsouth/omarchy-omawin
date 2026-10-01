@@ -13,6 +13,11 @@ chaves.omawin` brings you the latest.
   nothing happening. A locked-out account or an expired password gets its own
   message.
 
+### Added
+
+- The README explains how to restore a backed-up VM after reinstalling
+  Omarchy, and how to remove the VM itself.
+
 ## 0.2.2 — 2026-09-25
 
 ### Changed
