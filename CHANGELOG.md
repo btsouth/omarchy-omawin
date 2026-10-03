@@ -5,6 +5,11 @@ chaves.omawin` brings you the latest.
 
 ## Unreleased
 
+### Added
+
+- **On omarchy-console's rail**, Omawin now says itself whether the VM is
+  running, starting or failed, so the rail no longer has to guess.
+
 ## 0.2.3 — 2026-10-01
 
 ### Fixed

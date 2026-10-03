@@ -93,6 +93,11 @@ Windows) and **Login…**.
 
 **‹ Back** at the top right, or **Esc**, goes back.
 
+On omarchy-console's rail, the glyph slides up while the VM is running
+(ready or paused), with an amber edge while it starts, boots or stops and a
+red one when it failed. It reports this through the console's `consoleAwake`
+and `consoleState` properties.
+
 ## Restoring a backed-up VM
 
 Back up two things: the `~/.windows` folder (the disk) and

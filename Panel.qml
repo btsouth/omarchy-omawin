@@ -56,6 +56,9 @@ Panel {
   readonly property string stateFace: root.failed ? service.base : root.vmState
   readonly property bool inTransit: vmState === "starting" || vmState === "stopping"
   readonly property bool pulsing: root.inTransit || vmState === "booting"
+  // The console convention (omarchy-console DESIGN.md §6), read by its rail.
+  readonly property string consoleState: State.consoleState(vmState)
+  readonly property bool consoleAwake: consoleState !== ""
 
   // Which body the card is showing: the state machine's own ("live") or one of
   // the four sub-faces. Everything the live card draws is gated on `live`.

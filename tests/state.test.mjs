@@ -501,3 +501,13 @@ test('grewShape believes only a real grow in the writer\'s spelling', () => {
     { from: '64 G', to: '96G' }, { from: '64G', to: '<b>96G</b>' }])
     assert.equal(State.grewShape(bad), null, JSON.stringify(bad))
 })
+
+test('consoleState: what the console rail reads, per state', () => {
+  assert.equal(State.consoleState('ready'), 'running')
+  assert.equal(State.consoleState('paused'), 'running')
+  for (const moving of ['starting', 'booting', 'stopping'])
+    assert.equal(State.consoleState(moving), 'starting', moving)
+  assert.equal(State.consoleState('failed'), 'failed')
+  for (const idle of ['stopped', 'not-installed', '', undefined])
+    assert.equal(State.consoleState(idle), '', String(idle))
+})
