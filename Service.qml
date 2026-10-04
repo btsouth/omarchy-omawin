@@ -141,6 +141,7 @@ QtObject {
   // True while any action process is in flight; every button greys out, so a
   // second press cannot stack a stop on top of a start.
   readonly property bool busy: launchProc.running || stopProc.running || installProc.running
+    || removeProc.running
     || disconnectProc.running
     || pauseProc.running || resumeProc.running
     // The three configuration actions count too: Apply, Save and the terminal
@@ -655,6 +656,21 @@ QtObject {
 
   property Process installProc: Process {
     command: ["/usr/share/omarchy/bin/omarchy-launch-floating-terminal-with-presentation", "/usr/bin/omarchy-windows-vm", "install"]
+    onExited: function (code) { root.refresh() }
+  }
+
+  // Removing the VM is Omarchy's too, in the same terminal: `remove` asks for
+  // confirmation (default No) and for the password, stops the VM, and deletes
+  // ~/.windows, ~/.config/windows, the compose, the image and the launcher
+  // entry, never ~/Windows. Nothing of it is reimplemented here, and the
+  // polkit rule does not cover it.
+  function removeVm() {
+    if (root.busy) return
+    removeProc.running = true
+  }
+
+  property Process removeProc: Process {
+    command: ["/usr/share/omarchy/bin/omarchy-launch-floating-terminal-with-presentation", "/usr/bin/omarchy-windows-vm", "remove"]
     onExited: function (code) { root.refresh() }
   }
 

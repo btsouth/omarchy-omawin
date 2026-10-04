@@ -27,7 +27,8 @@ How Omawin works, what it touches, and why. For using it, see the
 - **Runs**: `/usr/bin/omarchy-windows-vm launch -k` inside the transient user
   unit `omawin-launch` (through `systemd-run --user`, so the RDP session
   survives a bar reload), `/usr/bin/omarchy-windows-vm stop`,
-  `/usr/bin/omarchy-windows-vm install` in Omarchy's floating terminal,
+  `/usr/bin/omarchy-windows-vm install` and `/usr/bin/omarchy-windows-vm remove`
+  in Omarchy's floating terminal,
   `/usr/bin/pkexec /usr/bin/docker pause|unpause omarchy-windows`,
   `systemctl --user stop omawin-launch`, and `xdg-open` on
   `http://127.0.0.1:8006` and `~/Windows`. Tune and Update password add
@@ -124,6 +125,7 @@ is not widget work, and it does not pretend otherwise:
 | Grow the disk | **Tune…**, a bigger Disk chip | Grow only — dockur refuses to shrink `data.img`, so smaller sizes are dead on the card. Needs `DISK+10 GB` free, computed without subtracting the existing image, which is the wizard's own rule. Windows sees the extra space as unallocated: extend `C:` in Disk Management once it is up (right-click `C:`, **Extend Volume**). The running card reminds you after the start that grew it, until you dismiss it. If Extend Volume is greyed out, a Recovery partition sits between `C:` and the free space and has to be moved or deleted first. |
 | Change the RDP password | **Login › Update password…** | Only after you have changed it *inside* Windows: this writes down what the machine sends, it cannot rename or re-password a Windows account. Rewrites the credentials file and, in the same breath, the compose's fallback copy of it — so stopped only, one authorisation. |
 | Anything else dockur supports (KEYBOARD, REGION, LANGUAGE, DISK2_SIZE, extra ports, `/dev/bus/usb`, DHCP/macvlan networking) | `sudo` edit of `/var/lib/omarchy/windows/docker-compose.yml`, then stop/start | `assert_mounts_safe` only checks owner/mode, the two bind lines and `PROTECT`; extra keys survive. **The next `install` run overwrites them.** Keep a copy. |
+| Remove the VM (VM off) | **Settings › Remove VM…** | Lists what goes (`~/.windows`, `~/.config/windows`, the compose, the `dockurr/windows` image, the launcher entry) and what stays (`~/Windows`), and asks you to turn on "I've copied what I need" first. Then it runs `omarchy-windows-vm remove` in Omarchy's floating terminal, which asks to confirm (default No) and for your password, and stops before deleting the disk if any of its checks fail. Omawin copies nothing: back up through the Shared folder, or the whole VM by hand (see the README). The polkit rule does not cover `remove`. |
 | Snapshot / rollback (VM off) | `cp -a --reflink=always ~/.windows ~/.windows.snap-<date>` | On btrfs a reflink copy is instant and free until blocks diverge. Rollback = copy back while stopped. User-owned, no root. |
 | Suspend to RAM | Pause | A cgroup freeze; see [Pause and Resume](#pause-and-resume). The guest clock resyncs on resume. |
 | Suspend to disk | Not from outside | `savevm` needs qcow2 and the monitor. Windows' own Hibernate from inside the guest is untested. |

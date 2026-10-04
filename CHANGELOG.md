@@ -9,6 +9,11 @@ chaves.omawin` brings you the latest.
 
 - **On omarchy-console's rail**, Omawin now says itself whether the VM is
   running, starting or failed, so the rail no longer has to guess.
+- **Remove the VM from the card.** Settings has a Remove VM… button while the
+  VM is stopped. It lists what will be deleted (Windows, its disk and the
+  saved login) and what stays (the Shared folder), reminds you to back up
+  first, and then runs Omarchy's own remover in a terminal. Install… starts a
+  fresh VM afterwards.
 
 ## 0.2.3 — 2026-10-01
 

@@ -44,12 +44,14 @@ always ask.
 omarchy plugin remove chaves.omawin
 ```
 
-The VM itself is Omarchy's and stays. To remove it too, run
-`omarchy-windows-vm remove`: after a confirmation it deletes the VM, its disk
-`~/.windows` and its login `~/.config/windows` for good, so back them up
-first if you may want them again (see
-[Restoring a backed-up VM](#restoring-a-backed-up-vm)). Install… on the card,
-or `omarchy-windows-vm install`, starts a fresh one.
+The VM itself is Omarchy's and stays. To remove it too, use **Settings ›
+Remove VM…** on the card before removing the plugin, or run
+`omarchy-windows-vm remove`. After a confirmation it deletes the VM, its disk
+`~/.windows` and its login `~/.config/windows` for good, so back up first if
+you may want them again (see
+[Restoring a backed-up VM](#restoring-a-backed-up-vm)). The shared folder
+`~/Windows` stays. Install… on the card, or `omarchy-windows-vm install`,
+starts a fresh one.
 
 Two things of Omawin's can stay behind:
 
@@ -90,6 +92,11 @@ Windows) and **Login…**.
 - **Settings** (the gear) turns **Passwordless actions** on or off: a polkit
   rule that lets Start, Stop, Pause and Resume run without a dialog, for you
   only. It opens a terminal, shows you the rule and asks before writing it.
+- **Remove VM…** (in Settings, VM off) deletes Windows and everything in it,
+  for a fresh start or a smaller disk. It lists what goes and what stays, and
+  asks you to say you've backed up: copy what you want to keep into the
+  Shared folder first, which stays. Then Omarchy's own remover runs in a
+  terminal and asks you to confirm.
 
 **‹ Back** at the top right, or **Esc**, goes back.
 
@@ -122,7 +129,8 @@ again. The password is the account's password, not its PIN.
 - **Reads**, as you: `/proc` and a cgroup file for the VM's state, the size of
   `~/.windows/data.img`, the username in `~/.config/windows/credentials`, and
   the RDP and web viewer ports on `127.0.0.1`. Nothing leaves the machine.
-- **Runs**: Omarchy's `omarchy-windows-vm` for start and stop, and
+- **Runs**: Omarchy's `omarchy-windows-vm` for start, stop, install and
+  remove (the last two in a terminal), and
   `pkexec docker pause|unpause omarchy-windows`. Tune and Update password
   rewrite the VM's compose through the helper's own validated writer.
   Passwords go on stdin, never on a command line.

@@ -201,7 +201,7 @@ test('detail prefers the live sample, falls back to the cache, else empty', () =
 // The panel's buttons, state by state. Everything not listed is disabled.
 const EXPECTED = {
   'not-installed': ['install'],
-  'stopped': ['start', 'shared', 'tune'],
+  'stopped': ['start', 'shared', 'tune', 'remove'],
   'starting': ['shared'],
   'booting': ['stop', 'web', 'shared'],
   'ready': ['connect', 'stop', 'pause', 'web', 'shared'],

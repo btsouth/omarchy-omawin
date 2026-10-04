@@ -63,7 +63,7 @@ Panel {
   readonly property string consoleReason: consoleState === "failed" ? service.failedMessage : ""
 
   // Which body the card is showing: the state machine's own ("live") or one of
-  // the four sub-faces. Everything the live card draws is gated on `live`.
+  // the sub-faces. Everything the live card draws is gated on `live`.
   property string face: "live"
   readonly property bool live: root.face === "live"
   // Whether the VM is off as far as the sampler is concerned — on the failed
@@ -139,6 +139,7 @@ Panel {
   readonly property string backGlyph: ""
   readonly property string closeGlyph: ""
   readonly property string minusGlyph: ""
+  readonly property string trashGlyph: ""
   readonly property string plusGlyph: ""
 
   // The hero's glyph: the Windows mark, on every face, with its pause badge.
@@ -255,6 +256,12 @@ Panel {
   // was opened from its "view →" line.
   property string loginFrom: "live"
 
+  // Where Back leads from the Remove face, Settings or Tune, and whether the
+  // user has said their files are copied out. The switch starts off on every
+  // visit: Remove VM… is only pressable once it is turned on.
+  property string removeFrom: "settings"
+  property bool removeAck: false
+
   // One step back: Update password to Login, Login to wherever it was opened
   // from, every other sub-face to the card. On the card itself it closes it.
   // Back and Esc hold only while this face's own write is in flight: leaving
@@ -271,6 +278,7 @@ Panel {
     if (root.face === "live") root.close()
     else if (root.face === "updatePassword") root.openFace("login")
     else if (root.face === "login") root.openFace(root.loginFrom)
+    else if (root.face === "remove") root.openFace(root.removeFrom)
     else root.openFace("live")
   }
 
@@ -283,6 +291,10 @@ Panel {
       root.resetTune()
     }
     if (name === "settings") service.readRule()
+    if (name === "remove") {
+      root.removeFrom = root.face === "tune" ? "tune" : "settings"
+      root.removeAck = false
+    }
     if (name === "updatePassword") {
       service.clearNotice()
       newPassword.text = ""
@@ -301,9 +313,11 @@ Panel {
   // The two faces that rewrite the compose only exist while the VM is off: the
   // write is consumed by the next `docker compose up`, and a VM that started
   // underneath would recreate its container from a file the user is still
-  // editing. They close themselves rather than fail on Apply.
+  // editing. They close themselves rather than fail on Apply. Remove goes too:
+  // it is only offered for a VM that is off.
   onVmStateChanged: {
-    if (!root.stoppedFace && (root.face === "tune" || root.face === "updatePassword"))
+    if (!root.stoppedFace
+      && (root.face === "tune" || root.face === "updatePassword" || root.face === "remove"))
       root.face = "live"
   }
 
@@ -366,13 +380,13 @@ Panel {
       return service.state + " " + service.failedMessage
     }
     // Debug only: show one of the card's faces — live, tune, login,
-    // updatePassword or settings — without pressing through to it, the way
+    // updatePassword, settings or remove — without pressing through to it, the way
     // `mock` reaches every state. It goes through the same openFace() the
     // buttons use, so the face is seeded the way a press would seed it; the
-    // two faces that rewrite the compose still close themselves when the VM
-    // is not stopped, and nothing runs. Anything else means "live".
+    // faces that only exist for a stopped VM still close themselves when it
+    // is not, and nothing runs. Anything else means "live".
     function face(name: string): string {
-      var faces = ["live", "tune", "login", "updatePassword", "settings"]
+      var faces = ["live", "tune", "login", "updatePassword", "settings", "remove"]
       root.openFace(faces.indexOf(String(name)) >= 0 ? String(name) : "live")
       return root.face
     }
@@ -471,6 +485,7 @@ Panel {
             : root.face === "tune" ? "Tune"
             : root.face === "login" ? "Login"
             : root.face === "updatePassword" ? "Update password"
+            : root.face === "remove" ? "Remove VM"
             : "Settings"
           meta: root.live ? service.label
             : root.face === "login" ? "Windows VM · RDP and web viewer"
@@ -1442,6 +1457,174 @@ Panel {
               value: "/var/lib/omarchy/windows"
               dimValue: true
             }
+          }
+
+          // The way to Remove: last on the rarest face, three deliberate steps
+          // from the card (the gear, this button, the switch on the face it
+          // opens), and never beside Start. Only for a VM that exists.
+          PanelSeparator {
+            visible: root.vmState !== "not-installed"
+            foreground: root.fg
+          }
+
+          Column {
+            visible: root.vmState !== "not-installed"
+            width: parent.width
+            spacing: Style.spacing.labelGap
+
+            FieldHeader {
+              label: "Remove the VM"
+              hint: service.currentDisk !== "" ? service.currentDisk + " disk" : ""
+            }
+
+            Text {
+              width: parent.width
+              textFormat: Text.PlainText
+              wrapMode: Text.WordWrap
+              color: root.dim
+              font.family: root.family
+              font.pixelSize: Style.font.caption
+              text: root.stoppedFace
+                ? "Deletes Windows and everything in it. The Shared folder stays. Install… starts a fresh one."
+                : "Stop the VM to remove it. To back up first, Connect and copy your files to the Shared folder."
+            }
+          }
+
+          ActionRow {
+            id: removeEntryRow
+            visible: root.vmState !== "not-installed"
+            cells: 1
+            ActionButton {
+              width: removeEntryRow.cellWidth
+              iconText: root.trashGlyph
+              text: "Remove VM…"
+              foreground: root.urgentColor
+              allowed: root.can("remove")
+              onClicked: root.openFace("remove")
+            }
+          }
+        }
+
+        // ============================ Remove ===============================
+        // The last thing read before Omarchy's terminal, whose own prompt only
+        // asks "Remove Windows VM and delete all associated data?": so the
+        // detail is here, with this VM's own disk size and login. Omawin copies
+        // nothing; the Shared folder is the one place both sides see and the
+        // one thing `remove` keeps, so that is where the backup goes.
+        Column {
+          visible: root.face === "remove"
+          width: parent.width
+          spacing: Style.space(14)
+
+          BannerBox {
+            accentColor: root.urgentColor
+            text: "Back up first. Everything inside Windows is deleted: your files, apps and settings. Copy what you want to keep into the Shared folder, which stays. To do that, Start and Connect from the card, then come back."
+          }
+
+          Column {
+            width: parent.width
+            spacing: Style.spacing.labelGap
+
+            InfoValue { text: "Deleted for good" }
+            InfoPair {
+              label: "Windows and its disk"
+              value: service.currentDisk !== "" ? service.currentDisk : "—"
+              note: "~/.windows"
+            }
+            InfoPair {
+              label: "Saved login"
+              value: service.loginText
+              note: "~/.config/windows"
+            }
+            InfoPair {
+              label: "VM settings and image"
+              value: "compose · dockurr/windows"
+              dimValue: true
+            }
+            InfoPair {
+              label: "Launcher entry"
+              value: "Windows"
+              dimValue: true
+            }
+          }
+
+          Column {
+            width: parent.width
+            spacing: Style.spacing.labelGap
+
+            InfoValue { text: "Kept" }
+            InfoPair {
+              label: "Shared folder"
+              value: "~/Windows"
+            }
+            InfoPair {
+              label: "Omawin"
+              value: "shows Install… again"
+              dimValue: true
+            }
+          }
+
+          PanelSeparator { foreground: root.fg }
+
+          Row {
+            width: parent.width
+            spacing: Style.space(12)
+
+            Text {
+              width: parent.width - removeSwitch.implicitWidth - parent.spacing
+              anchors.verticalCenter: parent.verticalCenter
+              textFormat: Text.PlainText
+              wrapMode: Text.WordWrap
+              color: root.fg
+              font.family: root.family
+              font.pixelSize: Style.font.caption
+              text: "I've copied what I need, or there's nothing to keep."
+
+              MouseArea {
+                anchors.fill: parent
+                cursorShape: Qt.PointingHandCursor
+                onClicked: root.removeAck = !root.removeAck
+              }
+            }
+
+            ToggleSwitch {
+              id: removeSwitch
+              anchors.verticalCenter: parent.verticalCenter
+              checked: root.removeAck
+              foreground: root.fg
+              onToggled: root.removeAck = !root.removeAck
+            }
+          }
+
+          ActionRow {
+            id: removeRow
+            cells: 2
+            ActionButton {
+              width: removeRow.cellWidth
+              iconText: root.folderGlyph
+              text: "Shared folder"
+              allowed: root.can("shared")
+              onClicked: service.openShared()
+            }
+            ActionButton {
+              width: removeRow.cellWidth
+              iconText: root.trashGlyph
+              text: "Remove VM…"
+              foreground: root.urgentColor
+              allowed: root.removeAck && root.can("remove")
+              // The terminal is another window: close first, as Install… does.
+              onClicked: { service.removeVm(); root.close() }
+            }
+          }
+
+          Text {
+            width: parent.width
+            textFormat: Text.PlainText
+            wrapMode: Text.WordWrap
+            color: root.dim
+            font.family: root.family
+            font.pixelSize: Style.font.caption
+            text: "Opens a terminal. Omarchy asks you to confirm (default No), then for your password."
           }
         }
       }
