@@ -192,7 +192,9 @@ Panel {
       if (service.hostRamGb <= 0 || root.ramSizes[i] <= service.hostRamGb)
         list.push(root.ramSizes[i])
     }
-    var now = parseInt(root.tuneRam, 10)
+    // The VM's size, not the chip picked: picking 8G must not take a 12G
+    // chip the compose was set to off the row.
+    var now = parseInt(service.ramText, 10)
     if (now > 0 && list.indexOf(now) === -1) {
       list.push(now)
       list.sort(function (a, b) { return a - b })
