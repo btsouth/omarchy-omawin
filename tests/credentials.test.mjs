@@ -138,6 +138,27 @@ test('write validates with the helper\'s own rule and changes nothing when it re
   assert.equal(write(env, 'y'.repeat(64)).status, 0)
 })
 
+test('a password with non-ASCII letters is printable, as it is to the helper', t => {
+  // Omarchy validates in C.UTF-8 (root side) and the user's UTF-8 locale (the
+  // wizard), so a VM can be installed with one: it must not be refused here.
+  const { env, read } = box(t, { credentials: 'USERNAME=chaves\nPASSWORD=Pässwort1\n' })
+  assert.equal(run(env, ['password']).out, 'Pässwort1')
+  const copied = run(env, ['copy'])
+  assert.equal(copied.status, 0, copied.err)
+
+  // 64 characters is the limit, counted as characters and not bytes.
+  const umlauts = 'ä'.repeat(64)
+  const saved = write(env, umlauts)
+  assert.equal(saved.status, 0, saved.err)
+  assert.equal(read(), 'USERNAME=chaves\nPASSWORD=' + umlauts + '\n')
+  const long = write(env, umlauts + 'x')
+  assert.equal(long.status, 2)
+  assert.match(long.err, /1 to 64 printable characters/)
+  // A byte that is not UTF-8 at all is still refused.
+  assert.equal(helper('credentials.sh', ['write', '--cores', '6', '--ram', '16G'], env,
+    Buffer.from([0x61, 0xff, 0x0a])).status, 2)
+})
+
 test('write needs the shape the compose has to be rewritten with', t => {
   const { env, read } = box(t)
   const before = read()

@@ -13,6 +13,9 @@ chaves.omawin` brings you the latest.
 - **Saving a password twice in a row works.** A second Update password in the
   same session used to fail with "must be 1 to 64 printable characters" until
   the bar restarted.
+- **Passwords with accented letters work.** A VM installed with a password like
+  "Pässwort1" could not use Reveal, Copy, Tune or Update password: Omawin
+  called it unprintable, though Omarchy accepts it.
 
 ### Added
 

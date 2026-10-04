@@ -1007,15 +1007,20 @@ QtObject {
 
   property string pendingPassword: ""
 
-  // The helper's own rule, checked here too: ^[[:print:]]{1,64}$ under LC_ALL=C
-  // is ASCII 0x20 to 0x7e. Saying so is friendlier than a button that looks
-  // pressed and does nothing.
-  readonly property var passwordShape: /^[ -~]{1,64}$/
+  // The helper's own rule, checked here too, as near as JavaScript gets to
+  // ^[[:print:]]{1,64}$ under C.UTF-8: up to 64 characters (not UTF-16 units,
+  // so "Pässwort1" and emoji count once each), none of them a control
+  // character. credentials.sh has the final word. Saying so here is friendlier
+  // than a button that looks pressed and does nothing.
+  function passwordFits(value) {
+    var length = Array.from(value).length
+    return length >= 1 && length <= 64 && !/[\u0000-\u001f\u007f-\u009f]/.test(value)
+  }
 
   function savePassword(text) {
     if (root.busy) return
     var value = String(text)
-    if (!root.passwordShape.test(value)) {
+    if (!root.passwordFits(value)) {
       root.notice("The password must be 1 to 64 printable characters.", false)
       return
     }

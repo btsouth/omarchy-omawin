@@ -67,6 +67,16 @@
 set -uo pipefail
 export LC_ALL=C
 
+# The helper's own password rule, ^[[:print:]]{1,64}$, in the helper's own
+# locale: its root side pins LC_ALL=C.UTF-8 and the install wizard runs in the
+# user's UTF-8 one, so "Pässwort1" is printable there. Under this script's C
+# locale every byte over 0x7f would fail [[:print:]], and a password the VM
+# was installed with would be refused here.
+printable() {
+  local LC_ALL=C.UTF-8
+  [[ $1 =~ ^[[:print:]]{1,64}$ ]]
+}
+
 credentials=${CREDENTIALS_FILE:-$HOME/.config/windows/credentials}
 data_image=${DATA_IMAGE:-$HOME/.windows/data.img}
 windows_dir=${WINDOWS_DIR:-$HOME/.windows}
@@ -225,7 +235,7 @@ apply() {
     die "no password stored in $credentials"
   [[ $username =~ ^[A-Za-z0-9_-]{1,20}$ ]] ||
     die "the stored username is not one the VM writer accepts"
-  [[ $password =~ ^[[:print:]]{1,64}$ ]] ||
+  printable "$password" ||
     die "the stored password is not a single printable line: set it again with Update password"
 
   tz=$(timezone)

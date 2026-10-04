@@ -250,7 +250,7 @@ Panel {
   // Save needs a password, a known shape to carry through the writer and a VM
   // that is off, for the same reason Apply does.
   readonly property bool canSave: !service.busy && root.stoppedFace
-    && service.canSavePassword && newPassword.text !== "" && newPassword.text.length <= 64
+    && service.canSavePassword && service.passwordFits(newPassword.text)
 
   // Where Back leads from the Login face: the card, or Settings when Login
   // was opened from its "view →" line.

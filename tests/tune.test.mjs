@@ -86,6 +86,13 @@ test('a password with = and $ in it reaches the writer, and is still not printed
   assert.equal(out.includes('a=b'), false)
 })
 
+test('a password with non-ASCII letters still lets Tune apply', t => {
+  const { env } = box(t, { credentials: 'USERNAME=chaves\nPASSWORD=Pässwort1\n' })
+  const { status, out, err } = apply(env, SHAPE)
+  assert.equal(status, 0, err)
+  assert.match(out, /^PASSWORD=\*\*\*$/m)
+})
+
 test('the disk grows and never shrinks', t => {
   const { env } = box(t, { disk: 64 })
   const shrink = apply(env, ['--cores', '6', '--ram', '16G', '--disk', '32G'])

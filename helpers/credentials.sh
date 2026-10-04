@@ -60,6 +60,16 @@
 set -uo pipefail
 export LC_ALL=C
 
+# The helper's own password rule, ^[[:print:]]{1,64}$, in the helper's own
+# locale: its root side pins LC_ALL=C.UTF-8 and the install wizard runs in the
+# user's UTF-8 one, so "Pässwort1" is printable there. Under this script's C
+# locale every byte over 0x7f would fail [[:print:]], and a password the VM
+# was installed with would be refused here.
+printable() {
+  local LC_ALL=C.UTF-8
+  [[ $1 =~ ^[[:print:]]{1,64}$ ]]
+}
+
 credentials=${CREDENTIALS_FILE:-$HOME/.config/windows/credentials}
 copy_mark=${COPY_MARK:-${XDG_RUNTIME_DIR:-/run/user/$UID}/omawin/copied}
 wl_copy=${WL_COPY:-/usr/bin/wl-copy}
@@ -119,7 +129,7 @@ print_username() {
 print_password() {
   local value
   value=$(credential PASSWORD) || die "$missing"
-  [[ $value =~ ^[[:print:]]{1,64}$ ]] ||
+  printable "$value" ||
     die "the stored password is not a single printable line"
   printf '%s\n' "$value"
 }
@@ -138,7 +148,7 @@ print_password() {
 copy_password() {
   local value
   value=$(credential PASSWORD) || die "$missing"
-  [[ $value =~ ^[[:print:]]{1,64}$ ]] ||
+  printable "$value" ||
     die "the stored password is not a single printable line"
   printf '%s' "$value" | "$wl_copy" --sensitive --type text/plain ||
     die "could not reach the clipboard (wl-copy)"
@@ -252,7 +262,7 @@ write_password() {
   # non-zero on a last line without a newline, which is fine: it has still
   # filled `password`.
   IFS= read -r password || true
-  [[ $password =~ ^[[:print:]]{1,64}$ ]] ||
+  printable "$password" ||
     die "the password must be 1 to 64 printable characters"
 
   tz=$(timezone)
