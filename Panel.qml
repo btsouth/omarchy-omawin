@@ -259,6 +259,9 @@ Panel {
     text += " Omarchy asks for authorisation once."
     if (service.currentDisk !== "" && root.tuneDisk !== service.currentDisk)
       text += " Disk grows from " + service.currentDisk + "; extend C: in Windows afterwards."
+    if (State.ramShort(root.tuneRam, service.memAvailKb))
+      text += " Only " + State.availText(service.memAvailKb) + " of memory is free right now:"
+        + " Windows would start with less than " + root.tuneRam + "."
     return text
   }
 
@@ -839,6 +842,14 @@ Panel {
           visible: service.noticeText !== "" && root.face !== "settings" && root.face !== "remove"
           text: service.noticeText
           accentColor: service.noticeOk ? Color.accent : root.urgentColor
+        }
+
+        // Before Start: the RAM it would start with does not fit in what is
+        // free, and dockur would quietly hand Windows less.
+        BannerBox {
+          visible: service.ramNote !== "" && root.live
+          text: service.ramNote
+          accentColor: root.urgentColor
         }
 
         // After a start that grew the disk: Windows leaves the new space

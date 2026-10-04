@@ -383,7 +383,33 @@ QtObject {
 
     root.nowMs = Date.now()
     root.updateCache(root.nowMs)
+    // What memory is free only matters to a stopped VM about to start, and
+    // only while someone is looking at the card.
+    if (root.panelOpen && root.state === "stopped") root.readMemory()
   }
+
+  // ------------------------------------------------------------- the memory
+  // MemAvailable in kB, or -1 before the first reading. dockur lowers a
+  // RAM_SIZE that does not fit at start (see State.ramNote), so the stopped
+  // card and Tune warn first.
+  property real memAvailKb: -1
+
+  function readMemory() {
+    if (!memProc.running) memProc.running = true
+  }
+
+  property Process memProc: Process {
+    command: ["/usr/bin/grep", "-m", "1", "^MemAvailable:", "/proc/meminfo"]
+    environment: ({ LC_ALL: "C" })
+    stdout: StdioCollector { id: memOut; waitForEnd: true }
+    onExited: function (code) {
+      var match = /^MemAvailable:\s+([0-9]{1,12}) kB/.exec(root.lastLine(memOut.text))
+      if (code === 0 && match) root.memAvailKb = Number(match[1])
+    }
+  }
+
+  readonly property string ramNote: root.state === "stopped"
+    ? State.ramNote(root.ramText, root.memAvailKb) : ""
 
   property Process sampleProc: Process {
     command: ["/usr/bin/timeout", "-k", "2", "10", "/usr/bin/bash", root.helpers + "/vm-state.sh"]

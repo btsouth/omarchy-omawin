@@ -41,6 +41,9 @@ chaves.omawin` brings you the latest.
 - **A key binding for Windows.** `omarchy-shell chaves.omawin primary` does
   what a middle click on the glyph does (Start when stopped, Connect when
   ready), so it can be bound to a key. The README shows how.
+- **A warning before Start when memory is short.** If the VM's RAM does not
+  fit in what is free right now, Windows would quietly start with less than
+  you set. The stopped card and Tune now say so first.
 - **Remove the VM from the card.** Settings has a Remove VM… button while the
   VM is stopped. It lists what will be deleted (Windows, its disk and the
   saved login) and what stays (the Shared folder), reminds you to back up

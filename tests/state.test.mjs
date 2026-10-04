@@ -534,3 +534,21 @@ test('consoleState: what the console rail reads, per state', () => {
   for (const idle of ['stopped', 'not-installed', '', undefined])
     assert.equal(State.consoleState(idle), '', String(idle))
 })
+
+test('the RAM warning follows dockur\'s own check at start', () => {
+  const GiB = 1048576 // kB
+  // 16G + 500 MB spare: 16.47 GiB available is the edge.
+  assert.equal(State.ramShort('16G', 16 * GiB), true)
+  assert.equal(State.ramShort('16G', 17 * GiB), false)
+  assert.equal(State.ramShort('16384M', 16 * GiB), true)
+  assert.equal(State.ramShort('16384', 16 * GiB), true, 'bare is MiB, as QEMU takes it')
+  // Unknown either way: no warning.
+  assert.equal(State.ramShort('16G', -1), false)
+  assert.equal(State.ramShort('—', 4 * GiB), false)
+  assert.equal(State.ramShort('', 4 * GiB), false)
+
+  assert.equal(State.ramNote('16G', 17 * GiB), '')
+  assert.equal(State.ramNote('16G', Math.round(5.25 * GiB)),
+    'Only 5.2 GB of memory is free right now, so Windows would start with less than its 16G.'
+      + ' Close some apps first, or Tune it lower.')
+})
