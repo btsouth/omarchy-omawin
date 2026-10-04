@@ -133,7 +133,8 @@ again. The password is the account's password, not its PIN.
 - **Runs**: Omarchy's `omarchy-windows-vm` for start, stop, install and
   remove (the last two in a terminal), and
   `pkexec docker pause|unpause omarchy-windows`. Tune and Update password
-  rewrite the VM's compose through the helper's own validated writer.
+  rewrite the VM's compose through the helper's own validated writer, which
+  regenerates the whole file: keys you added to it by hand are dropped.
   Passwords go on stdin, never on a command line.
 - **Writes**: `~/.local/state/omawin/`, the credentials file when you update
   the password, and the VM's compose through Omarchy's helper. No other
