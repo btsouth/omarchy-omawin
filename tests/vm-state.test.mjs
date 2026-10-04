@@ -18,10 +18,12 @@ test('a running VM reports every field', () => {
   )
 })
 
-test('a paused VM differs only in cgroup.freeze', () => {
+test('a paused VM differs only in cgroup.freeze, and is not probed', () => {
+  // The frozen nginx would never answer: web is 000 without asking, even with
+  // a code standing in for curl.
   assert.equal(
     vmState('paused', { WEB_CODE: '401' }),
-    'installed=1 docker=active pid=1360395 frozen=1 cores=4 ram=16G web=401 cid=' + CID +
+    'installed=1 docker=active pid=1360395 frozen=1 cores=4 ram=16G web=000 cid=' + CID +
       ' started=' + STARTED + ' disk=64G login=chaves'
   )
 })

@@ -21,7 +21,7 @@
 #   frozen     cgroup.freeze of that scope: 1 after `docker pause`
 #   cores/ram  the -smp and -m arguments of the live QEMU command line
 #   web        HTTP status of the dockur web viewer on 8006 (401 = up, it is
-#              behind basic auth; 000 = closed)
+#              behind basic auth; 000 = closed, or not asked while paused)
 #   cid        the 64-hex container id from the docker-<id>.scope cgroup
 #   started    when that QEMU process started, in epoch seconds: field 22 of
 #              /proc/<pid>/stat (ticks since boot) over USER_HZ, which is 100
@@ -162,8 +162,15 @@ if ((installed)); then
     break
   done
   # -q first so ~/.curlrc cannot add to the request; the body is discarded and
-  # capped anyway, only the status code is wanted.
-  web=${WEB_CODE-$(/usr/bin/curl -q -s -o /dev/null -w '%{http_code}' --max-time 1 --max-filesize 65536 -- http://127.0.0.1:8006/)}
+  # capped anyway, only the status code is wanted. Not while paused:
+  # docker-proxy still accepts the connection but the frozen nginx never
+  # answers, so every sample would wait out the whole second for a reading
+  # only the starting card uses.
+  if [[ $frozen == 1 ]]; then
+    web=000
+  else
+    web=${WEB_CODE-$(/usr/bin/curl -q -s -o /dev/null -w '%{http_code}' --max-time 1 --max-filesize 65536 -- http://127.0.0.1:8006/)}
+  fi
   [[ $web =~ ^[0-9]{3}$ ]] || web=000
 fi
 
