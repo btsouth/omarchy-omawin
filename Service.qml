@@ -298,7 +298,13 @@ QtObject {
   // A reloaded or removed plugin must not leave a poller behind — nor the
   // password on the clipboard, if a Copy is still inside its 30 s window.
   Component.onDestruction: {
-    if (root.copied) clipboardClearProc.running = true
+    // Detached, not clipboardClearProc: a Process being destroyed kills its
+    // child (Process::~Process), and this one is torn down with the rest of
+    // the plugin a moment after this line, before `clear` has run.
+    if (root.copied) Quickshell.execDetached({
+      command: ["/usr/bin/bash", root.helpers + "/credentials.sh", "clear"],
+      environment: { LC_ALL: "C" }
+    })
     sampleTimer.running = false
     probeTimer.running = false
     unitTimer.running = false
