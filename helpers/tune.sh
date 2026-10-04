@@ -218,11 +218,14 @@ apply() {
     die "the disk cannot shrink: data.img is already $now"
 
   # The wizard's rule, counted the way the wizard counts it: the image that is
-  # already there is not subtracted.
+  # already there is not subtracted. Only for a disk that grows: a change of
+  # cores or RAM allocates nothing, and must not be refused on a full drive.
   local free need=$((10#${disk%G} + RESERVE_GB))
-  free=$(free_gb)
-  [[ -z $free ]] || ((10#$free >= need)) ||
-    die "not enough room: $disk needs $need GB free (disk + $RESERVE_GB GB), $free GB left"
+  if [[ -z $now ]] || ((10#${disk%G} > 10#${now%G})); then
+    free=$(free_gb)
+    [[ -z $free ]] || ((10#$free >= need)) ||
+      die "not enough room: $disk needs $need GB free (disk + $RESERVE_GB GB), $free GB left"
+  fi
 
   local username password tz
   # An install from before Omarchy moved the compose has no credentials file

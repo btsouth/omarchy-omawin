@@ -122,6 +122,17 @@ test('the wizard\'s free-space rule is applied the way the wizard applies it', t
   assert.equal(apply(env, SHAPE, { FREE_GB: '' }).status, 0)
 })
 
+test('a shape that keeps the disk size needs no free space', t => {
+  // Cores and RAM allocate nothing on disk: a 64G VM on a nearly full drive
+  // can still change them, and only a grow is held to the wizard's sum.
+  const { env } = box(t, { disk: 64 })
+  const same = apply(env, ['--cores', '6', '--ram', '16G', '--disk', '64G'], { FREE_GB: '5' })
+  assert.equal(same.status, 0, same.err)
+  const grow = apply(env, ['--cores', '6', '--ram', '16G', '--disk', '96G'], { FREE_GB: '5' })
+  assert.equal(grow.status, 2)
+  assert.match(grow.err, /not enough room/)
+})
+
 test('the machine caps the cores and the RAM', t => {
   const { env } = box(t)
   const cores = apply(env, ['--cores', '9', '--ram', '16G', '--disk', '96G'])

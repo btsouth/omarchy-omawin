@@ -16,6 +16,8 @@ chaves.omawin` brings you the latest.
 - **Passwords with accented letters work.** A VM installed with a password like
   "Pässwort1" could not use Reveal, Copy, Tune or Update password: Omawin
   called it unprintable, though Omarchy accepts it.
+- **Tune can change cores and RAM on a nearly full drive.** The "disk + 10 GB
+  free" rule now applies only when the disk grows.
 
 ### Added
 

@@ -220,9 +220,13 @@ Panel {
   }
 
   // The wizard's own free-space rule, counted the way the wizard counts it: the
-  // image already on disk is not subtracted.
+  // image already on disk is not subtracted. Only for a disk that grows, as in
+  // tune.sh: cores and RAM allocate nothing on disk.
   readonly property int diskNeedGb: (parseInt(root.tuneDisk, 10) || 0) + 10
-  readonly property bool tuneRoom: service.freeGb < 0 || root.diskNeedGb <= service.freeGb
+  readonly property bool tuneGrows: service.currentDisk === ""
+    || (parseInt(root.tuneDisk, 10) || 0) > parseInt(service.currentDisk, 10)
+  readonly property bool tuneRoom: service.freeGb < 0 || !root.tuneGrows
+    || root.diskNeedGb <= service.freeGb
   readonly property bool tuneChanged: String(root.tuneCores) !== service.coresText
     || root.tuneRam !== service.ramText || root.tuneDisk !== service.diskText
   readonly property bool canApply: !service.busy && root.stoppedFace
