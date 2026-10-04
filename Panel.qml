@@ -39,7 +39,7 @@ Panel {
     // where the banner it left behind is waiting. `face` is set directly, not
     // through openFace(), which would clear that banner on the way.
     onShapeApplied: root.face = "live"
-    onPasswordSaved: root.face = "login"
+    onPasswordSaved: { root.dropPasswordField(); root.face = "login" }
   }
 
   // ------------------------------------------------------------ the palette
@@ -286,6 +286,18 @@ Panel {
     else root.openFace("live")
   }
 
+  // Leaving Update password, by any road: the typed password goes, and so does
+  // the field's hold on the keyboard. A hidden field that kept focus would
+  // keep the key catcher blocked (Tab and Esc dead) and would save again on
+  // Enter. openFace() does this for every face but its own; the paths that
+  // set `face` directly (a save that landed, the VM starting, the card
+  // closing) call it themselves.
+  function dropPasswordField() {
+    newPassword.text = ""
+    newPassword.password = true
+    keyCatcher.forceActiveFocus()
+  }
+
   function openFace(name) {
     if (name === "login" && root.face !== "updatePassword")
       root.loginFrom = root.face === "settings" ? "settings" : "live"
@@ -307,7 +319,7 @@ Panel {
       // which is also what unblocks the panel's key catcher for typing.
       newPassword.forceActiveFocus()
     } else {
-      keyCatcher.forceActiveFocus()
+      root.dropPasswordField()
     }
     // Nothing keeps a revealed password across a face change.
     service.maskPassword()
@@ -321,8 +333,10 @@ Panel {
   // it is only offered for a VM that is off.
   onVmStateChanged: {
     if (!root.stoppedFace
-      && (root.face === "tune" || root.face === "updatePassword" || root.face === "remove"))
+      && (root.face === "tune" || root.face === "updatePassword" || root.face === "remove")) {
+      root.dropPasswordField()
       root.face = "live"
+    }
   }
 
   implicitWidth: button.implicitWidth
@@ -337,7 +351,9 @@ Panel {
       service.readRule()
     } else {
       // A closed card keeps nothing: back to the live face, and the revealed
-      // password is dropped rather than waiting out its 15 s.
+      // password is dropped rather than waiting out its 15 s, as is one typed
+      // into Update password.
+      root.dropPasswordField()
       root.face = "live"
       service.maskPassword()
     }

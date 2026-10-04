@@ -21,6 +21,9 @@ chaves.omawin` brings you the latest.
 - **Update password refuses a password Omarchy would cut short.** A password
   whose only "=" is its last character (like "Secret1=") was saved whole but
   sent without the "=", so Connect kept failing. It is now refused, with why.
+- **A saved password no longer lingers in the card.** After Save, or when the
+  card closed or the VM started, the typed password stayed in the hidden
+  field: Enter saved it again and Tab stopped working until the next visit.
 
 ### Added
 
