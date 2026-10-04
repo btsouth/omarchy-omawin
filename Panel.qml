@@ -299,6 +299,11 @@ Panel {
   }
 
   function openFace(name) {
+    // The faces that rewrite the compose or remove the VM exist only for one
+    // that is off. Their buttons can only reach them then, but the IPC `face`
+    // can be asked for one at any time: it gets the card instead.
+    if (!root.stoppedFace && (name === "tune" || name === "updatePassword" || name === "remove"))
+      name = "live"
     if (name === "login" && root.face !== "updatePassword")
       root.loginFrom = root.face === "settings" ? "settings" : "live"
     if (name === "tune") {
@@ -403,8 +408,8 @@ Panel {
     // updatePassword, settings or remove — without pressing through to it, the way
     // `mock` reaches every state. It goes through the same openFace() the
     // buttons use, so the face is seeded the way a press would seed it; the
-    // faces that only exist for a stopped VM still close themselves when it
-    // is not, and nothing runs. Anything else means "live".
+    // faces that only exist for a stopped VM open only on one, and nothing
+    // runs. Anything else means "live".
     function face(name: string): string {
       var faces = ["live", "tune", "login", "updatePassword", "settings", "remove"]
       root.openFace(faces.indexOf(String(name)) >= 0 ? String(name) : "live")
