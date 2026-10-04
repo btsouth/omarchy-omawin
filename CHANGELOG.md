@@ -38,6 +38,9 @@ chaves.omawin` brings you the latest.
 
 - **On omarchy-console's rail**, Omawin now says itself whether the VM is
   running, starting or failed, so the rail no longer has to guess.
+- **A key binding for Windows.** `omarchy-shell chaves.omawin primary` does
+  what a middle click on the glyph does (Start when stopped, Connect when
+  ready), so it can be bound to a key. The README shows how.
 - **Remove the VM from the card.** Settings has a Remove VM… button while the
   VM is stopped. It lists what will be deleted (Windows, its disk and the
   saved login) and what stays (the Shared folder), reminds you to back up

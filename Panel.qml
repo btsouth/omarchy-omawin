@@ -155,6 +155,15 @@ Panel {
     }
   }
 
+  // The one-click shortcut, for the middle button and the `primary` IPC a key
+  // binding calls: Start when stopped, Connect when ready, nothing anywhere
+  // else, and never anything destructive. Says what it did.
+  function primary() {
+    if (root.can("start")) { service.start(); return "start" }
+    if (root.can("connect")) { service.connect(); return "connect" }
+    return ""
+  }
+
   // A button is live only when the state machine allows it AND no action is
   // already in flight.
   function can(name) {
@@ -376,6 +385,9 @@ Panel {
     function show(): void { root.open() }
     function hide(): void { root.close() }
     function toggle(): void { root.toggle() }
+    // What the middle button does, for a key binding: Start when stopped,
+    // Connect when ready, nothing otherwise. Answers "start", "connect" or "".
+    function primary(): string { return root.primary() }
     // The headless check: the painted state, the sampler line it came from
     // and the bar tooltip, e.g. "stopped installed=1 docker=active pid= … |
     // Windows VM · STOPPED · 4 cores · 16G".
@@ -443,8 +455,7 @@ Panel {
     // does nothing.
     onPressed: function (code) {
       if (code === Qt.MiddleButton) {
-        if (root.can("start")) service.start()
-        else if (root.can("connect")) service.connect()
+        root.primary()
         return
       }
       if (code === Qt.RightButton) return

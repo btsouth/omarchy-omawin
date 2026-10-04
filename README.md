@@ -66,6 +66,13 @@ Two things of Omawin's can stay behind:
 **Left click** the glyph for the card; **middle click** starts the VM, or
 connects when it is up. Hover for its state, shape and uptime.
 
+**A key for it:** add a line like this to `~/.config/hypr/bindings.lua`. The
+key does what a middle click does:
+
+```lua
+o.bind("SUPER + ALT + W", "Windows VM", "omarchy-shell chaves.omawin primary")
+```
+
 <p><img src="docs/card-states.png" alt="The card in each state: stopped, starting, booting, ready, paused, failed" width="800"></p>
 
 - **Stopped**: Start, and Tune the shape the next start will use.
