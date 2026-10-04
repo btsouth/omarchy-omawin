@@ -54,6 +54,8 @@
 #   DATA_IMAGE        the guest disk image   (default ~/.windows/data.img)
 #   DOCKER_STATE      skip systemctl, use this value
 #   WEB_CODE          skip curl, use this value (still only when installed)
+#   STORAGE_ANCHOR    where Omarchy binds ~/.windows for Docker
+#                     (default /var/lib/omarchy/windows/mounts/users/$UID/storage)
 
 set -uo pipefail
 export LC_ALL=C
@@ -68,6 +70,19 @@ compose=${COMPOSE_FILE:-/var/lib/omarchy/windows/docker-compose.yml}
 legacy_compose=${LEGACY_COMPOSE_FILE:-$HOME/.config/windows/docker-compose.yml}
 credentials=${CREDENTIALS_FILE:-$HOME/.config/windows/credentials}
 data_image=${DATA_IMAGE:-$HOME/.windows/data.img}
+anchor=${STORAGE_ANCHOR:-/var/lib/omarchy/windows/mounts/users/$UID/storage}
+
+# "<major:minor> <root>" of the mount at mount point $2 in mountinfo file $1,
+# the last one if it was mounted over. A bind mount keeps its source's device
+# and root, so the anchor Omarchy binds ~/.windows onto and the /storage Docker
+# binds that anchor onto read the same here, whatever the filesystem.
+mount_identity() {
+  local _id _parent dev root point _rest found=
+  while read -r _id _parent dev root point _rest; do
+    [[ $point == "$2" ]] && found="$dev $root"
+  done 2>/dev/null <"$1"
+  [[ -n $found ]] && printf '%s\n' "$found"
+}
 
 # The same test migrate_legacy_compose makes: the old file only counts while
 # the new one is not there yet.
@@ -112,6 +127,9 @@ if ((installed)); then
     done 2>/dev/null <"$credentials"
   fi
   [[ $login =~ ^[A-Za-z0-9_-]{1,20}$ ]] || login=
+  # This user's storage as the host mounts it, or nothing on an install whose
+  # anchor is not mounted (or not readable): then no QEMU is ruled out by it.
+  ours=$(mount_identity "$proc_root/self/mountinfo" "$anchor") || ours=
   for comm_file in "$proc_root"/[0-9]*/comm; do
     read -r comm 2>/dev/null <"$comm_file" || continue
     [[ $comm == windows ]] || continue
@@ -125,6 +143,14 @@ if ((installed)); then
     argv=()
     mapfile -d '' -t argv 2>/dev/null <"$dir/cmdline"
     [[ ${argv[0]-} == qemu-system-x86_64 ]] || continue
+
+    # Every dockur Windows passes the tests above: WinApps, WinBoat, another
+    # user's Omarchy VM. Ours is the one whose /storage is this user's anchor.
+    # A QEMU whose mounts cannot be read is not ruled out.
+    if [[ -n $ours ]]; then
+      theirs=$(mount_identity "$dir/mountinfo" /storage) || theirs=
+      [[ -z $theirs || $theirs == "$ours" ]] || continue
+    fi
 
     pid=${dir##*/}
     [[ $pid =~ ^[0-9]{1,8}$ ]] || continue

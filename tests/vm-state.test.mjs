@@ -141,6 +141,42 @@ test('started survives a comm with spaces and a bracket in it', () => {
   }
 })
 
+test('another dockur Windows is not taken for this VM', () => {
+  // WinApps, WinBoat or another user's Omarchy VM: comm "windows", a docker
+  // cgroup, qemu-system-x86_64. Only its /storage tells it apart, by the
+  // device and root the host's anchor for this user's ~/.windows has.
+  const anchor = '/var/lib/omarchy/windows/mounts/users/1000/storage'
+  const mount = (id, root, point) =>
+    `${id} 30 0:45 ${root} ${point} rw,relatime shared:9 - btrfs /dev/nvme0n1p2 rw\n`
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'omawin-proc-'))
+  fs.cpSync(path.join(fixtures, 'running/proc'), dir, { recursive: true })
+  fs.mkdirSync(path.join(dir, 'self'))
+  fs.writeFileSync(path.join(dir, 'self/mountinfo'),
+    mount(40, '/', '/') + mount(41, '/@home/chaves/.windows', anchor))
+  fs.writeFileSync(path.join(dir, '1360395/mountinfo'),
+    mount(900, '/@home/chaves/.windows', '/storage'))
+  // The decoy sorts first: a dockur container whose /storage is someone
+  // else's disk, in a docker scope of its own.
+  fs.cpSync(path.join(dir, '1360395'), path.join(dir, '1000'), { recursive: true })
+  fs.writeFileSync(path.join(dir, '1000/cgroup'),
+    '0::/system.slice/docker-' + 'ab'.repeat(32) + '.scope\n')
+  fs.writeFileSync(path.join(dir, '1000/mountinfo'),
+    mount(901, '/@home/chaves/.local/share/winapps', '/storage'))
+  const ours = 'installed=1 docker=active pid=1360395 frozen=0 cores=4 ram=16G web=000 cid=' + CID +
+    ' started=' + STARTED + ' disk=64G login=chaves'
+  try {
+    assert.equal(vmState('running', { PROC_ROOT: dir, STORAGE_ANCHOR: anchor }), ours)
+    // With ours gone, the decoy alone is still not this VM: stopped.
+    fs.rmSync(path.join(dir, '1360395'), { recursive: true })
+    assert.match(vmState('running', { PROC_ROOT: dir, STORAGE_ANCHOR: anchor }),
+      /^installed=1 docker=active pid= frozen= cores= ram= /)
+    // An anchor that is not mounted rules nothing out, as before.
+    assert.match(vmState('running', { PROC_ROOT: dir, STORAGE_ANCHOR: '/nowhere' }), / pid=1000 /)
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true })
+  }
+})
+
 test('no btime line means no started, not a bogus epoch', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'omawin-proc-'))
   fs.cpSync(path.join(fixtures, 'running/proc'), dir, { recursive: true })

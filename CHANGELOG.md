@@ -24,6 +24,9 @@ chaves.omawin` brings you the latest.
 - **A saved password no longer lingers in the card.** After Save, or when the
   card closed or the VM started, the typed password stayed in the hidden
   field: Enter saved it again and Tab stopped working until the next visit.
+- **Another Windows container is no longer taken for Omarchy's VM.** With
+  WinApps, WinBoat or another user's VM running, the card could show theirs
+  as yours, and then fail to pause it.
 - **Tune keeps the VM's own RAM size on offer.** A size set by hand (say 12G)
   vanished from the RAM choices as soon as another one was picked.
 - **The docs no longer understate what Tune and Update password rewrite.**
