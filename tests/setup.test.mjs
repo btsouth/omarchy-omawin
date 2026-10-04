@@ -388,3 +388,34 @@ test('helpers/rule-state.sh reads that copy, and nothing else', t => {
     { OMAWIN_STATE_DIR: path.join(home, 'elsewhere'), HOME: home })
   assert.match(moved.out, /^present=1 user=alice since=[0-9]{10}$/)
 })
+
+// The one root path: run setup as root of a user namespace (uid 0 there is
+// whoever runs the tests, every other uid a subordinate one), on a tmpfs only
+// that namespace sees. Skipped where unprivileged user namespaces or a
+// subuid range are not available.
+test('as root, the user-owned copy is written as the user and a planted link is not followed', t => {
+  const user = os.userInfo().username
+  const script = `
+set -u
+mount -t tmpfs tmpfs /mnt && cd /mnt || exit 90
+mkdir -p rules home/.local/state victim && chown -R ${process.getuid()}:${process.getgid()} home
+setup() { POLKIT_RULES_DIR=/mnt/rules SETUP_TARGET_HOME=/mnt/home SUDO_USER= "$1" polkit --user ${user} --yes >/dev/null 2>&1; }
+setup '${path.join(root, 'setup')}'
+stat -c 'copy %u %a' home/.local/state/omawin/49-omawin.rules
+cmp -s rules/49-omawin.rules home/.local/state/omawin/49-omawin.rules && echo same
+rm -rf home/.local/state/omawin
+ln -s /mnt/victim home/.local/state/omawin && chown -h ${process.getuid()}:${process.getgid()} home/.local/state/omawin
+setup '${path.join(root, 'setup')}'
+stat -c 'victim %u %a' victim
+ls victim | wc -l
+`
+  const probe = spawnSync('unshare', ['--map-auto', '--map-root-user', '--mount', '--', 'true'])
+  if (probe.status !== 0) return t.skip('no unprivileged user namespace with a subuid range here')
+  const result = spawnSync('unshare', ['--map-auto', '--map-root-user', '--mount', '--',
+    '/bin/bash', '-c', script], { encoding: 'utf8' })
+  if (result.status === 90) return t.skip('cannot mount a tmpfs in the namespace')
+  const uid = process.getuid()
+  // Inside the namespace our own uid is 0, and the target user's is the one
+  // they have outside: written as them, the copy is theirs.
+  assert.equal(result.stdout, `copy ${uid} 644\nsame\nvictim 0 755\n0\n`, result.stderr)
+})

@@ -111,8 +111,25 @@ state_dir() {
   printf '%s/.local/state/omawin\n' "$home"
 }
 
+# Runs a command as the target user when this script is root. Everything under
+# the user's home is touched this way: as root, install(1) and rm(1) would
+# follow a symlink planted at ~/.local/state/omawin (or above it) and chown,
+# chmod or delete whatever it points at. As the user, a link like that only
+# reaches what the user could already write.
+as_user() {
+  local user=$1
+  shift
+  if ((EUID == 0)) && [[ -n $user ]]; then
+    /usr/bin/setpriv --reuid="$user" --regid="$(id -g -- "$user")" --init-groups -- "$@"
+  else
+    "$@"
+  fi
+}
+
 # The copy is made FROM the installed file, so it is byte for byte what polkitd
 # reads — not a second rendering of the template that could drift from it.
+# Root opens the rule (rules.d is root:polkitd 0750) and hands it over on
+# stdin; the user writes it.
 record_rule() {
   local user=$1 dir file
   dir=$(state_dir "$user") || {
@@ -120,12 +137,8 @@ record_rule() {
     return 1
   }
   file=$dir/$rule_name
-  local -a owner=()
-  if ((EUID == 0)) && [[ -n $user ]]; then
-    owner=(-o "$user" -g "$(id -gn -- "$user" 2>/dev/null || printf '%s' "$user")")
-  fi
-  install -d -m 0700 "${owner[@]}" -- "$dir" || return 1
-  install -m 0644 "${owner[@]}" -- "$rule_dest" "$file" || return 1
+  as_user "$user" install -d -m 0700 -- "$dir" || return 1
+  as_user "$user" install -m 0644 -- /dev/stdin "$file" <"$rule_dest" || return 1
   printf '%s\n' "$file"
 }
 
@@ -257,7 +270,8 @@ polkit_remove() {
   fi
   # The widget's switch is the copy, so it goes too — even when the rule itself
   # was already gone, which is exactly the stale record the card warns about.
-  if dir=$(state_dir "$user") && remove_file "$dir/$rule_name"; then
+  if dir=$(state_dir "$user") && [[ -e $dir/$rule_name ]] &&
+    as_user "$user" rm -f -- "$dir/$rule_name"; then
     echo "removed $dir/$rule_name (the widget's copy)"
     removed=1
   fi
