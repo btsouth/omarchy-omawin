@@ -75,10 +75,12 @@ o.bind("SUPER + ALT + W", "Windows VM", "omarchy-shell chaves.omawin primary")
 
 <p><img src="docs/card-states.png" alt="The card in each state: stopped, starting, booting, ready, paused, failed" width="800"></p>
 
-- **Stopped**: Start, and Tune the shape the next start will use.
+- **Stopped**: Start, and Tune the shape the next start will use. Disk says
+  how much of it Windows has really written.
 - **Starting / Booting**: the VM is coming up. The web viewer already works
   while Windows boots, which is where you watch a first install.
-- **Ready**: Connect opens the Windows window. Pause, Stop, Web viewer.
+- **Ready**: Connect opens the Windows window. Pause, Stop, Web viewer. CPU
+  shows how busy Windows is right now.
 - **Paused**: frozen in memory, using no CPU. Resume picks up where it left
   off and reopens the window.
 - **Failed**: what went wrong, and what to try. The buttons underneath still
@@ -134,9 +136,10 @@ again. The password is the account's password, not its PIN.
 
 ## What it touches
 
-- **Reads**, as you: `/proc` and a cgroup file for the VM's state, the size of
-  `~/.windows/data.img`, the username in `~/.config/windows/credentials`, and
-  the RDP and web viewer ports on `127.0.0.1`. Nothing leaves the machine.
+- **Reads**, as you: `/proc` and cgroup files for the VM's state and usage,
+  the size of `~/.windows/data.img`, the username in
+  `~/.config/windows/credentials`, and the RDP and web viewer ports on
+  `127.0.0.1`. Nothing leaves the machine.
 - **Runs**: Omarchy's `omarchy-windows-vm` for start, stop, install and
   remove (the last two in a terminal), and
   `pkexec docker pause|unpause omarchy-windows`. Tune and Update password

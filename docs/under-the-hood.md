@@ -18,7 +18,11 @@ How Omawin works, what it touches, and why. For using it, see the
   (`stat -c %s` — the compose is `root:docker 0640` and cannot be read, so that
   sparse file is the only readable record of `DISK_SIZE`), the `USERNAME` line
   of the credentials file on every sample and its `PASSWORD` line only when
-  Reveal, Copy or Save asks, `nproc`, `MemTotal`, `df` of `~/.windows`,
+  Reveal, Copy or Save asks, `nproc`, `MemTotal`, `df` of `~/.windows`.
+  While the card is open: `MemAvailable` on a stopped VM (for the RAM
+  warning), and through `helpers/usage.sh` the container cgroup's `cpu.stat`
+  and the blocks `data.img` occupies (`stat -c '%b %B'`) for CPU and "used".
+  No memory reading: from outside, Windows always holds all of its RAM. Also
   `timedatectl show -p Timezone`, and `~/.local/state/omawin/49-omawin.rules`
   — the copy `setup` leaves behind, which is how the Settings switch knows.
 - **Network**: loopback only. A 19-byte X.224 Connection Request to

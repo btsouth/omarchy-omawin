@@ -41,7 +41,8 @@ of control characters like any helper output.
 
 The helpers read a few environment variables so the tests can point them at
 fixtures: `PROC_ROOT`, `SYS_ROOT`, `COMPOSE_FILE`, `LEGACY_COMPOSE_FILE`, `CREDENTIALS_FILE`,
-`DOCKER_STATE`, `WEB_CODE`, `STORAGE_ANCHOR` for `vm-state.sh`; `RDP_HOST`, `RDP_PORT`,
+`DOCKER_STATE`, `WEB_CODE`, `STORAGE_ANCHOR` for `vm-state.sh`; `PROC_ROOT`,
+`SYS_ROOT`, `DATA_IMAGE` for `usage.sh`; `RDP_HOST`, `RDP_PORT`,
 `RDP_TIMEOUT`, `RDP_PROTOCOLS` for `rdp-probe.sh` (shape-checked, the probe
 refuses anything but a dotted IPv4 address); `DATA_IMAGE` for the disk reading;
 `HOST_CORES`, `HOST_RAM_GB`, `FREE_GB`, `WINDOWS_DIR`, `TZ_NAME` and

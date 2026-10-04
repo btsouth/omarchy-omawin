@@ -742,6 +742,12 @@ Panel {
               value: service.uptimeText !== "" ? service.uptimeText : "—"
               dimValue: service.uptimeText === ""
             }
+            InfoPair {
+              visible: root.vmState === "ready"
+              label: "CPU"
+              value: service.cpuText !== "" ? service.cpuText : "—"
+              dimValue: service.cpuText === ""
+            }
           }
 
           Column {
@@ -761,7 +767,9 @@ Panel {
               visible: root.vmState === "stopped"
               label: "Disk"
               value: service.diskText
-              note: service.diskNote
+              // A disk waiting to grow says from what; otherwise how much of
+              // it Windows has actually written.
+              note: service.diskNote !== "" ? service.diskNote : service.usedText
               dimValue: service.diskText === "—"
             }
             // Plain information: the way into the Login face is the Login…

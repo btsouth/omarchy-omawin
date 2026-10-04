@@ -41,6 +41,8 @@ chaves.omawin` brings you the latest.
 - **A key binding for Windows.** `omarchy-shell chaves.omawin primary` does
   what a middle click on the glyph does (Start when stopped, Connect when
   ready), so it can be bound to a key. The README shows how.
+- **See what Windows is using.** The running card shows how busy its CPU is,
+  and the stopped card how much of its disk Windows has really written.
 - **A warning before Start when memory is short.** If the VM's RAM does not
   fit in what is free right now, Windows would quietly start with less than
   you set. The stopped card and Tune now say so first.

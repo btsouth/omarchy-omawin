@@ -552,3 +552,22 @@ test('the RAM warning follows dockur\'s own check at start', () => {
     'Only 5.2 GB of memory is free right now, so Windows would start with less than its 16G.'
       + ' Close some apps first, or Tune it lower.')
 })
+
+test('the usage line and what the card makes of it', () => {
+  assert.deepEqual(State.parseUsage('cpu=8123456789 used=24696061952'),
+    { cpu: 8123456789, used: 24696061952 })
+  assert.deepEqual(State.parseUsage('cpu= used='), { cpu: 0, used: 0 })
+  assert.deepEqual(State.parseUsage('cpu=x used=12 mem=5'), { cpu: 0, used: 12 })
+  assert.deepEqual(State.parseUsage(undefined), { cpu: 0, used: 0 })
+
+  // 4 cores, 5 s apart: 7 s of CPU time is 35% of the 20 s they had.
+  assert.equal(State.cpuText(1e9, 1e9 + 7e6, 5000, 4), '35%')
+  assert.equal(State.cpuText(1e9, 1e9 + 40e6, 5000, 4), '100%', 'capped')
+  assert.equal(State.cpuText(0, 7e6, 5000, 4), '', 'no first reading yet')
+  assert.equal(State.cpuText(9e9, 1e9, 5000, 4), '', 'a new container counts from 0')
+  assert.equal(State.cpuText(1e9, 2e9, 5000, 0), '')
+
+  assert.equal(State.usedText(24696061952), '23G used')
+  assert.equal(State.usedText(1048576), '1G used')
+  assert.equal(State.usedText(0), '')
+})

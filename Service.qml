@@ -386,7 +386,44 @@ QtObject {
     // What memory is free only matters to a stopped VM about to start, and
     // only while someone is looking at the card.
     if (root.panelOpen && root.state === "stopped") root.readMemory()
+    // What the VM is using: only while someone is looking at the card.
+    if (root.panelOpen && root.state !== "not-installed") root.readUsage(next.pid)
   }
+
+  // -------------------------------------------------------------- the usage
+  // helpers/usage.sh's readings (State.parseUsage) and when they were taken.
+  // CPU is a rate, so it needs two readings of the same QEMU: "" until then.
+  property var usage: ({ cpu: 0, used: 0 })
+  property double usageAt: 0
+  property int usagePid: 0
+  property string cpuText: ""
+
+  function readUsage(pid) {
+    if (usageProc.running) return
+    usageProc.forPid = pid
+    usageProc.running = true
+  }
+
+  property Process usageProc: Process {
+    property int forPid: 0
+    command: ["/usr/bin/bash", root.helpers + "/usage.sh"]
+      .concat(forPid > 0 ? [String(forPid)] : [])
+    environment: ({ LC_ALL: "C" })
+    stdout: StdioCollector { id: usageOut; waitForEnd: true }
+    onExited: function (code) {
+      if (code !== 0) return
+      var next = State.parseUsage(root.lastLine(usageOut.text))
+      var now = Date.now()
+      root.cpuText = usageProc.forPid > 0 && usageProc.forPid === root.usagePid
+        ? State.cpuText(root.usage.cpu, next.cpu, now - root.usageAt, root.sample.cores) : ""
+      root.usage = next
+      root.usageAt = now
+      root.usagePid = usageProc.forPid
+    }
+  }
+
+  // "23G used", what data.img really occupies on disk.
+  readonly property string usedText: State.usedText(root.usage.used)
 
   // ------------------------------------------------------------- the memory
   // MemAvailable in kB, or -1 before the first reading. dockur lowers a
