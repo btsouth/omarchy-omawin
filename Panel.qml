@@ -1392,7 +1392,11 @@ Panel {
                 color: root.dim
                 font.family: root.family
                 font.pixelSize: Style.font.caption
-                text: service.rulePresent
+                text: service.rulePresent && !service.ruleLocal
+                  ? "Installed for " + root.ruleUserName + " by an older Omawin, which also lets"
+                    + " SSH sessions skip the dialog. Remove the rule and install it again"
+                    + " to limit it to this desktop."
+                  : service.rulePresent
                   ? "Installed for " + root.ruleUserName
                     + (service.ruleSinceText !== "" ? " on " + service.ruleSinceText : "")
                     + ", as recorded by setup."
@@ -1436,7 +1440,7 @@ Panel {
               color: root.dim
               font.family: root.family
               font.pixelSize: Style.font.caption
-              text: "Allows, for " + root.ruleUserName + " only, exactly:\n"
+              text: "Allows, for " + root.ruleUserName + " at this desktop only, exactly:\n"
                 + "/usr/bin/omarchy-windows-vm __priv status\n"
                 + "/usr/bin/omarchy-windows-vm __priv up_wait\n"
                 + "/usr/bin/omarchy-windows-vm __priv down\n"

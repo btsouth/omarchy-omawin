@@ -63,9 +63,9 @@ function loadRule(file) {
 }
 
 // One pkexec authorization request, shaped the way polkitd presents it.
-function ask(rule, { user, program, commandLine, id = EXEC }) {
+function ask(rule, { user, program, commandLine, id = EXEC, local = true, active = true }) {
   const details = { program, command_line: commandLine, cmdline_short: program }
-  return rule({ id, lookup: key => details[key] }, { user })
+  return rule({ id, lookup: key => details[key] }, { user, local, active })
 }
 
 const ALLOWED = [
@@ -138,6 +138,18 @@ test('the rendered rule says YES to exactly the five command lines', t => {
       user: 'alice',
       program: '/usr/bin/docker',
       commandLine: '/usr/bin/docker pause omarchy-windows --other'
+    }],
+    ['an SSH login as alice still prompts', {
+      user: 'alice',
+      local: false,
+      program: '/usr/bin/omarchy-windows-vm',
+      commandLine: '/usr/bin/omarchy-windows-vm __priv up_wait'
+    }],
+    ['so does a session of hers that is not the active one', {
+      user: 'alice',
+      active: false,
+      program: '/usr/bin/docker',
+      commandLine: '/usr/bin/docker pause omarchy-windows'
     }]
   ]
   for (const [why, request] of denied) {
@@ -372,12 +384,12 @@ test('helpers/rule-state.sh reads that copy, and nothing else', t => {
 
   const absent = helper('rule-state.sh', [], { OMAWIN_STATE_DIR: state, HOME: home })
   assert.equal(absent.status, 0)
-  assert.equal(absent.out, 'present=0 user= since=')
+  assert.equal(absent.out, 'present=0 user= since= local=')
 
   assert.equal(setup(['polkit', '--yes', '--user', 'alice'], { dir, state }).status, 0)
   const present = helper('rule-state.sh', [], { OMAWIN_STATE_DIR: state, HOME: home })
   assert.equal(present.status, 0)
-  assert.match(present.out, /^present=1 user=alice since=[0-9]{10}$/)
+  assert.match(present.out, /^present=1 user=alice since=[0-9]{10} local=1$/)
 
   // The fallback: a user whose XDG_STATE_HOME points elsewhere still finds the
   // copy setup wrote under ~/.local/state, because it looks there too.
@@ -386,7 +398,15 @@ test('helpers/rule-state.sh reads that copy, and nothing else', t => {
   fs.copyFileSync(path.join(state, RULE), path.join(fallback, RULE))
   const moved = helper('rule-state.sh', [],
     { OMAWIN_STATE_DIR: path.join(home, 'elsewhere'), HOME: home })
-  assert.match(moved.out, /^present=1 user=alice since=[0-9]{10}$/)
+  assert.match(moved.out, /^present=1 user=alice since=[0-9]{10} local=1$/)
+
+  // A copy of a rule from before 0.2.4, with no session test, says so: the
+  // card then asks for the rule to be installed again.
+  const copy = path.join(state, RULE)
+  fs.writeFileSync(copy, fs.readFileSync(copy, 'utf8')
+    .split('\n').filter(line => !line.includes('subject.local')).join('\n'))
+  const old = helper('rule-state.sh', [], { OMAWIN_STATE_DIR: state, HOME: home })
+  assert.match(old.out, /^present=1 user=alice since=[0-9]{10} local=0$/)
 })
 
 // The one root path: run setup as root of a user namespace (uid 0 there is

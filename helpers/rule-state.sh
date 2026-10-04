@@ -3,12 +3,14 @@
 #
 # Prints ONE line of key=value pairs; every key is always present:
 #
-#   present=1 user=chaves since=1789186123
-#   present=0 user= since=
+#   present=1 user=chaves since=1789186123 local=1
+#   present=0 user= since= local=
 #
 #   present  a copy of the installed rule is in the state directory (1/0)
 #   user     the user name that copy names, read out of the rule itself
 #   since    its mtime in epoch seconds, i.e. when `setup` installed it
+#   local    the rule is limited to the active local session (1/0); a rule
+#            installed before 0.2.4 is not, and lets SSH sessions through too
 #
 # Why a copy and not the rule itself: /etc/polkit-1/rules.d is root:polkitd
 # 0750, so the user cannot list it, stat it or even `test -f` a file in it, and
@@ -37,7 +39,7 @@ rule_name=49-omawin.rules
 state_dir=${OMAWIN_STATE_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/omawin}
 fallback_dir=$HOME/.local/state/omawin
 
-present=0 user= since=
+present=0 user= since= limited=
 for dir in "$state_dir" "$fallback_dir"; do
   file=$dir/$rule_name
   [[ -f $file ]] || continue
@@ -48,7 +50,9 @@ for dir in "$state_dir" "$fallback_dir"; do
   [[ $user =~ ^[a-z_][a-z0-9_-]{0,31}\$?$ ]] || user=
   since=$(/usr/bin/stat -Lc '%Y' -- "$file" 2>/dev/null) || since=
   [[ $since =~ ^[0-9]{1,12}$ ]] || since=
+  limited=0
+  /usr/bin/grep -q 'subject\.local' -- "$file" 2>/dev/null && limited=1
   break
 done
 
-printf 'present=%s user=%s since=%s\n' "$present" "$user" "$since"
+printf 'present=%s user=%s since=%s local=%s\n' "$present" "$user" "$since" "$limited"

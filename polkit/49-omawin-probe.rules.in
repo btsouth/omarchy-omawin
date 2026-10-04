@@ -23,6 +23,7 @@
 polkit.addRule(function (action, subject) {
   if (action.id !== "org.freedesktop.policykit.exec") return;
   if (subject.user !== "@USER@") return;
+  if (!subject.local || !subject.active) return;
   if (action.lookup("program") !== "/usr/bin/omarchy-windows-vm") return;
   if (action.lookup("command_line") !== "/usr/bin/omarchy-windows-vm __priv status") return;
   return polkit.Result.YES;

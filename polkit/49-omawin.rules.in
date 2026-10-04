@@ -1,9 +1,13 @@
-// Omawin: let @USER@ drive the Omarchy Windows VM without a password.
+// Omawin: let @USER@ drive the Omarchy Windows VM without a password, from
+// their active local session.
 // Only these exact command lines; anything else pkexec asks as usual.
 // Installed by `sudo ./setup polkit`, which fills in the user name below.
 polkit.addRule(function (action, subject) {
   if (action.id !== "org.freedesktop.policykit.exec") return;
   if (subject.user !== "@USER@") return;
+  // Only from the active local session: an SSH login, or a session switched
+  // away from, as the same user still gets the normal prompt.
+  if (!subject.local || !subject.active) return;
   var program = action.lookup("program");
   var cmd = action.lookup("command_line");
   var allowed = {

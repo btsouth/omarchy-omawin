@@ -153,8 +153,10 @@ lines for exactly one user:
 /usr/bin/docker pause | unpause omarchy-windows
 ```
 
-So any process running as that user can start, stop, pause and query *this
-one VM*. `up_wait` only ever runs Omarchy's root-owned, validated compose file
+So any process running as that user, in their active local session, can
+start, stop, pause and query *this one VM*. An SSH login, or a session that is
+not the active one (switched away from, or on another seat), gets the normal
+prompt. `up_wait` only ever runs Omarchy's root-owned, validated compose file
 against pinned bind anchors — that is the point of the helper's design — so it
 is not a path to arbitrary root. `write_compose` and `remove` keep prompting,
 `docker` stays untouchable beyond pause/unpause of the `omarchy-windows`

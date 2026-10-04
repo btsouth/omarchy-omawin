@@ -1080,6 +1080,9 @@ QtObject {
   property bool rulePresent: false
   property string ruleUser: ""
   property double ruleSince: 0
+  // Whether the installed rule is limited to the active local session; one
+  // installed before 0.2.4 is not.
+  property bool ruleLocal: true
 
   function readRule() {
     if (!ruleProc.running) ruleProc.running = true
@@ -1100,6 +1103,9 @@ QtObject {
       root.rulePresent = fields.present === "1"
       root.ruleUser = /^[a-z_][a-z0-9_-]{0,31}$/.test(fields.user || "") ? fields.user : ""
       root.ruleSince = /^[0-9]{1,12}$/.test(fields.since || "") ? Number(fields.since) : 0
+      // A copy that says nothing either way (an older helper) is taken as
+      // limited, so the card never nags about a rule it cannot read.
+      root.ruleLocal = fields.local !== "0"
     }
   }
 

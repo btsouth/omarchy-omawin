@@ -46,6 +46,10 @@ chaves.omawin` brings you the latest.
 
 ### Changed
 
+- **Passwordless actions only skip the dialog at your desktop.** The polkit
+  rule now applies to your active local session only, so an SSH login as you
+  still gets the password prompt. A rule installed by an older Omawin keeps
+  the old behaviour, and Settings says so: remove it and install it again.
 - **Tune says how to get a smaller disk.** A disk can only grow, so under the
   greyed-out sizes Tune now explains that a smaller disk needs a new VM, with
   a link to Remove VM….
