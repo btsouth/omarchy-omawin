@@ -18,6 +18,9 @@ chaves.omawin` brings you the latest.
   called it unprintable, though Omarchy accepts it.
 - **Tune can change cores and RAM on a nearly full drive.** The "disk + 10 GB
   free" rule now applies only when the disk grows.
+- **Update password refuses a password Omarchy would cut short.** A password
+  whose only "=" is its last character (like "Secret1=") was saved whole but
+  sent without the "=", so Connect kept failing. It is now refused, with why.
 
 ### Added
 

@@ -138,6 +138,24 @@ test('write validates with the helper\'s own rule and changes nothing when it re
   assert.equal(write(env, 'y'.repeat(64)).status, 0)
 })
 
+test('a password Omarchy would read back shorter is refused', t => {
+  // The helper's read_credential splits with IFS='=' read, which drops a
+  // trailing = that is the password's only one. Those are refused whole...
+  const { env, read } = box(t)
+  const before = read()
+  for (const password of ['Secret1=', '=']) {
+    const result = write(env, password)
+    assert.equal(result.status, 2, password)
+    assert.match(result.err, /only = is its last character/)
+    assert.equal(read(), before, 'the file is untouched')
+  }
+  // ...and every other = survives, so those are taken.
+  for (const password of ['x==', 'a=b=', '==', 'a=b']) {
+    assert.equal(write(env, password).status, 0, password)
+    assert.equal(run(env, ['password']).out, password)
+  }
+})
+
 test('a password with non-ASCII letters is printable, as it is to the helper', t => {
   // Omarchy validates in C.UTF-8 (root side) and the user's UTF-8 locale (the
   // wizard), so a VM can be installed with one: it must not be refused here.

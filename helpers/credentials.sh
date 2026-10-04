@@ -264,6 +264,14 @@ write_password() {
   IFS= read -r password || true
   printable "$password" ||
     die "the password must be 1 to 64 printable characters"
+  # Omarchy reads this file back with `IFS='=' read -r key value`, and read
+  # drops a trailing = when it is the password's only one: "Secret1=" would
+  # be stored whole and sent as "Secret1", and Connect would keep failing.
+  # Refused, by doing that same read, so the rule cannot drift from bash's.
+  local back
+  IFS='=' read -r _ back <<<"PASSWORD=$password"
+  [[ $back == "$password" ]] ||
+    die "Omarchy cannot store a password whose only = is its last character: change it in Windows to one it can"
 
   tz=$(timezone)
 
