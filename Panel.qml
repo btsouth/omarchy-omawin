@@ -59,6 +59,8 @@ Panel {
   // The console convention (omarchy-console DESIGN.md §6), read by its rail.
   readonly property string consoleState: State.consoleState(vmState)
   readonly property bool consoleAwake: consoleState !== ""
+  // Why it failed, for the rail's tag (FAILED · reason; omarchy-console §6).
+  readonly property string consoleReason: consoleState === "failed" ? service.failedMessage : ""
 
   // Which body the card is showing: the state machine's own ("live") or one of
   // the four sub-faces. Everything the live card draws is gated on `live`.
