@@ -1022,6 +1022,10 @@ QtObject {
     if (!root.canSavePassword) return
     root.clearNotice()
     root.pendingPassword = value
+    // onStarted closes stdin once the password is written, and Quickshell
+    // keeps it closed for every later start while stdinEnabled is false: a
+    // second Save would hand the helper an empty line. Reopened per save.
+    saveProc.stdinEnabled = true
     saveProc.running = true
   }
 

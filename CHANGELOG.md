@@ -10,6 +10,9 @@ chaves.omawin` brings you the latest.
 - **A removed VM no longer haunts the card.** After removing the VM, the card
   and its tooltip stopped showing the old VM's cores, RAM, disk and last run,
   and a fresh install no longer claims its disk grew.
+- **Saving a password twice in a row works.** A second Update password in the
+  same session used to fail with "must be 1 to 64 printable characters" until
+  the bar restarted.
 
 ### Added
 
