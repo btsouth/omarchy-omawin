@@ -15,6 +15,12 @@ chaves.omawin` brings you the latest.
   first, and then runs Omarchy's own remover in a terminal. Install… starts a
   fresh VM afterwards.
 
+### Changed
+
+- **Tune says how to get a smaller disk.** A disk can only grow, so under the
+  greyed-out sizes Tune now explains that a smaller disk needs a new VM, with
+  a link to Remove VM….
+
 ## 0.2.3 — 2026-10-01
 
 ### Fixed

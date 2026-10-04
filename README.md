@@ -84,7 +84,8 @@ Windows) and **Login…**.
 
 - **Tune** (VM off) sets cores, RAM and disk for the next start. The disk can
   only grow; after it does, extend C: in Windows' Disk Management and the card
-  reminds you how.
+  reminds you how. A smaller disk needs a new VM: back up, Remove VM…, then
+  Install… with the size you want.
 - **Login** shows the RDP username, and reveals or copies the password. A
   copied password stays out of Omarchy's clipboard history and is cleared
   after 30 s. Changed the password inside Windows? **Update password…** so

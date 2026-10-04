@@ -1133,6 +1133,27 @@ Panel {
                 }
               }
             }
+
+            // So the only way to a smaller disk is a new VM. Said wherever a
+            // smaller size is greyed out, and the line leads to the Remove face,
+            // warnings and all, never straight to the remover.
+            Text {
+              visible: root.diskChoices.length > 0 && !root.diskAllowed(root.diskChoices[0])
+              width: parent.width
+              textFormat: Text.StyledText
+              wrapMode: Text.WordWrap
+              color: root.dim
+              font.family: root.family
+              font.pixelSize: Style.font.caption
+              text: "A disk can't shrink. For a smaller one, back up, then <b>Remove VM →</b> and Install… again."
+
+              MouseArea {
+                anchors.fill: parent
+                enabled: root.can("remove")
+                cursorShape: Qt.PointingHandCursor
+                onClicked: root.openFace("remove")
+              }
+            }
           }
 
           PanelSeparator { foreground: root.fg }
