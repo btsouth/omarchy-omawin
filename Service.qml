@@ -370,6 +370,8 @@ QtObject {
     // QEMU appearing means a pending shape has just been consumed, so the
     // "Shape saved" banner has said all it had to say.
     if (next.pid && !previous.pid) root.clearNotice()
+    // Nor has anything it said survived the VM being removed or installed.
+    if (next.installed !== previous.installed) root.clearNotice()
     if (next.pid) root.checkUnit()
     else root.sessionOpen = false
 

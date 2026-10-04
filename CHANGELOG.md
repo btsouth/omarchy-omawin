@@ -5,6 +5,12 @@ chaves.omawin` brings you the latest.
 
 ## Unreleased
 
+### Fixed
+
+- **A removed VM no longer haunts the card.** After removing the VM, the card
+  and its tooltip stopped showing the old VM's cores, RAM, disk and last run,
+  and a fresh install no longer claims its disk grew.
+
 ### Added
 
 - **On omarchy-console's rail**, Omawin now says itself whether the VM is

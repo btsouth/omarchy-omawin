@@ -798,7 +798,7 @@ Panel {
         // for one that did not. It is not the failed card: a refused compose
         // rewrite changed nothing about the VM.
         BannerBox {
-          visible: service.noticeText !== "" && root.face !== "settings"
+          visible: service.noticeText !== "" && root.face !== "settings" && root.face !== "remove"
           text: service.noticeText
           accentColor: service.noticeOk ? Color.accent : root.urgentColor
         }

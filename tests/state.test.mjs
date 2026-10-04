@@ -430,6 +430,29 @@ test('cachePending keeps the cache and adds the shape the next start will use', 
   })
 })
 
+test('a removed VM takes its cache with it', () => {
+  const absent = State.parseSample(ABSENT)
+  const cached = { cores: 2, ram: '4G', disk: '96G', started: STARTED, lastSeen: NOW,
+    pending: { cores: 6, ram: '16G', disk: '128G' } }
+  // The not-installed card and its tooltip print no shape, cache or not.
+  assert.equal(State.detail(absent, cached), '')
+  assert.equal(State.tooltip('not-installed', absent, NONE, cached, NOW), 'Windows VM · NOT INSTALLED')
+  // The record is emptied once, and an empty one is left alone after that.
+  const emptied = State.cacheFrom(absent, cached, NOW)
+  assert.deepEqual(emptied, {})
+  assert.equal(State.cacheFrom(absent, emptied, NOW + 30000), emptied)
+  assert.equal(State.cacheFrom(absent, null, NOW), null)
+  // What the Service reads back from "{}": every field blank.
+  const blank = { cores: 0, ram: '', disk: '', started: 0, lastSeen: 0, pending: null, grew: null }
+  assert.equal(State.cacheFrom(absent, blank, NOW), blank)
+  // A helper that died mid-line is no proof the VM is gone.
+  assert.equal(State.cacheFrom(State.parseSample(''), cached, NOW), cached)
+  // A fresh install at the size the removed VM's Tune was waiting for is not
+  // a grow once the cache has been emptied.
+  const fresh = State.parseSample(RUNNING + ' disk=128G login=chaves')
+  assert.equal(State.cacheFrom(fresh, emptied, NOW).grew, undefined)
+})
+
 test('cacheFrom records the disk the sampler saw', () => {
   assert.equal(State.cacheFrom(State.parseSample(RUNNING_FULL), null, NOW).disk, '64G')
   // A sampler that reported none keeps whatever was cached.
