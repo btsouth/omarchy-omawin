@@ -5,6 +5,8 @@ chaves.omawin` brings you the latest.
 
 ## Unreleased
 
+## 0.2.4 — 2026-10-04
+
 ### Fixed
 
 - **A removed VM no longer haunts the card.** After removing the VM, the card
