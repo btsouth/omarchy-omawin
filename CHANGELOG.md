@@ -5,6 +5,14 @@ chaves.omawin` brings you the latest.
 
 ## Unreleased
 
+## 0.2.3 - 2026-10-08
+
+### Fixed
+
+- Colors work again on Qt 6.12. QtQuick now ships its own `Color` type, which hid the
+  shell's `Color` palette and left colors undefined. The plugin reads it as
+  `Commons.Color`, the same change Omarchy made for its own shell.
+
 ## 0.2.2 — 2026-09-25
 
 ### Changed
